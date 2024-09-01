@@ -44,7 +44,7 @@ class StandardContact extends Contact
     #[ORM\JoinTable(name: 'category_tag_standard_secondary')]
     protected Collection $secondaryTags;
 
-    #[ORM\OneToOne(targetEntity: StandardAddress::class)]
+    #[ORM\OneToOne(targetEntity: StandardAddress::class, inversedBy: 'contact')]
     #[ORM\JoinColumn(nullable: false)]
     protected Address $address;
 }
