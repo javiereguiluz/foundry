@@ -2106,10 +2106,11 @@ Later, you can access the story's state when creating other fixtures:
         namespace App\Story;
 
         use App\Factory\CategoryFactory;
+        use Zenstruck\Foundry\Persistence\Proxy;
         use Zenstruck\Foundry\Story;
 
         /**
-         * @method static Category php()
+         * @method static Category&Proxy<Category> php()
          */
         final class CategoryStory extends Story
         {
