@@ -32,7 +32,6 @@ final class BuildStoryOnTestPrepared implements Event\Test\PreparedSubscriber
         }
 
         /** @var Event\Code\TestMethod $test */
-
         $reflectionClass = new \ReflectionClass($test->className());
         $withStoryAttributes = [
             ...$this->collectWithStoryAttributesFromClassAndParents($reflectionClass),
@@ -43,15 +42,8 @@ final class BuildStoryOnTestPrepared implements Event\Test\PreparedSubscriber
             return;
         }
 
-        if (!is_subclass_of($test->className(), KernelTestCase::class)) {
-            throw new \InvalidArgumentException(
-                \sprintf(
-                    'The test class "%s" must extend "%s" to use the "%s" attribute.',
-                    $test->className(),
-                    KernelTestCase::class,
-                    WithStory::class
-                )
-            );
+        if (!\is_subclass_of($test->className(), KernelTestCase::class)) {
+            throw new \InvalidArgumentException(\sprintf('The test class "%s" must extend "%s" to use the "%s" attribute.', $test->className(), KernelTestCase::class, WithStory::class));
         }
 
         foreach ($withStoryAttributes as $withStoryAttribute) {
@@ -67,10 +59,10 @@ final class BuildStoryOnTestPrepared implements Event\Test\PreparedSubscriber
         return [
             ...$class->getAttributes(WithStory::class),
             ...(
-            $class->getParentClass()
-                ? $this->collectWithStoryAttributesFromClassAndParents($class->getParentClass())
-                : []
-            )
+                $class->getParentClass()
+                    ? $this->collectWithStoryAttributesFromClassAndParents($class->getParentClass())
+                    : []
+            ),
         ];
     }
 }
