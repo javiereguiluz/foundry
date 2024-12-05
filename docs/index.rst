@@ -680,7 +680,7 @@ instantiators):
 Immutable
 ~~~~~~~~~
 
-Factory's are immutable:
+Factories are immutable:
 
 ::
 
