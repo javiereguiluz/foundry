@@ -78,7 +78,7 @@ final class OrmV3PersistenceStrategy extends AbstractORMPersistenceStrategy
             return null;
         }
 
-        if (!is_a($targetEntity, $associationMapping->targetEntity, allow_string: true)) {
+        if (!\is_a($targetEntity, $associationMapping->targetEntity, allow_string: true)) {
             return null;
         }
 

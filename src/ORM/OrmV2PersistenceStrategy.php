@@ -36,7 +36,7 @@ final class OrmV2PersistenceStrategy extends AbstractORMPersistenceStrategy
                 isCascadePersist: $association['isCascadePersist'],
                 inverseField: $metadata->isSingleValuedAssociation($association['fieldName']) ? $association['fieldName'] : null,
                 isCollection: $metadata->isCollectionValuedAssociation($association['fieldName']),
-                isOneToOne: $association['type'] === ClassMetadataInfo::ONE_TO_ONE
+                isOneToOne: ClassMetadataInfo::ONE_TO_ONE === $association['type']
             );
         }
 
@@ -71,7 +71,7 @@ final class OrmV2PersistenceStrategy extends AbstractORMPersistenceStrategy
             isCascadePersist: $inversedAssociation['isCascadePersist'],
             inverseField: $metadata->isSingleValuedAssociation($association['fieldName']) ? $association['fieldName'] : null,
             isCollection: $inversedAssociationMetadata->isCollectionValuedAssociation($inversedAssociation['fieldName']),
-            isOneToOne: $inversedAssociation['type'] === ClassMetadataInfo::ONE_TO_ONE
+            isOneToOne: ClassMetadataInfo::ONE_TO_ONE === $inversedAssociation['type']
         );
     }
 
@@ -88,7 +88,7 @@ final class OrmV2PersistenceStrategy extends AbstractORMPersistenceStrategy
             return null;
         }
 
-        if (!is_a($targetEntity, $associationMapping['targetEntity'], allow_string: true)) {
+        if (!\is_a($targetEntity, $associationMapping['targetEntity'], allow_string: true)) {
             return null;
         }
 
