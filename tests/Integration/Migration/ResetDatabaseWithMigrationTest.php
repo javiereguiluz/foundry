@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Zenstruck\Foundry\Tests\Integration\Migration;
 
 use Symfony\Bundle\FrameworkBundle\Console\Application;
@@ -25,8 +34,8 @@ use function Zenstruck\Foundry\Persistence\repository;
 final class ResetDatabaseWithMigrationTest extends KernelTestCase
 {
     use Factories;
-    use ResetDatabase;
     use RequiresORM;
+    use ResetDatabase;
 
     /**
      * @test
@@ -82,7 +91,7 @@ final class ResetDatabaseWithMigrationTest extends KernelTestCase
      */
     public function can_create_object_in_another_schema(): void
     {
-        if (!str_starts_with(\getenv('DATABASE_URL') ?: '', 'postgresql')) {
+        if (!\str_starts_with(\getenv('DATABASE_URL') ?: '', 'postgresql')) {
             self::markTestSkipped('PostgreSQL needed.');
         }
 

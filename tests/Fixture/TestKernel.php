@@ -102,7 +102,7 @@ final class TestKernel extends Kernel
 
                         // postgres acts weirdly with multiple schemas
                         // @see https://github.com/doctrine/DoctrineBundle/issues/548
-                        ...(str_starts_with(\getenv('DATABASE_URL'), 'postgresql')
+                        ...(\str_starts_with(\getenv('DATABASE_URL'), 'postgresql')
                             ? [
                                 'EntityInAnotherSchema' => [
                                     'is_bundle' => false,
@@ -110,7 +110,7 @@ final class TestKernel extends Kernel
                                     'dir' => '%kernel.project_dir%/tests/Fixture/EntityInAnotherSchema',
                                     'prefix' => 'Zenstruck\Foundry\Tests\Fixture\EntityInAnotherSchema',
                                     'alias' => 'Migrate',
-                                ]
+                                ],
                             ]
                             : []
                         ),

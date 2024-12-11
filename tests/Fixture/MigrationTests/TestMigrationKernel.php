@@ -63,14 +63,14 @@ final class TestMigrationKernel extends Kernel
                 'reset' => [
                     'mode' => ResetDatabaseMode::MIGRATE,
                     'migrations' => [
-                        'configurations' => ($configFile = \getenv('WITH_MIGRATION_CONFIGURATION_FILE')) ? [$configFile] : []
+                        'configurations' => ($configFile = \getenv('WITH_MIGRATION_CONFIGURATION_FILE')) ? [$configFile] : [],
                     ],
                 ],
             ],
         ]);
 
         if (!\getenv('WITH_MIGRATION_CONFIGURATION_FILE')) {
-            $c->loadFromExtension('doctrine_migrations', include __DIR__ . '/configs/migration-configuration.php');
+            $c->loadFromExtension('doctrine_migrations', include __DIR__.'/configs/migration-configuration.php');
         }
 
         $c->loadFromExtension('doctrine', [
@@ -96,7 +96,7 @@ final class TestMigrationKernel extends Kernel
 
                     // postgres acts weirdly with multiple schemas
                     // @see https://github.com/doctrine/DoctrineBundle/issues/548
-                    ...(str_starts_with(\getenv('DATABASE_URL') ?: '', 'postgresql')
+                    ...(\str_starts_with(\getenv('DATABASE_URL') ?: '', 'postgresql')
                         ? [
                             'EntityInAnotherSchema' => [
                                 'is_bundle' => false,
@@ -104,7 +104,7 @@ final class TestMigrationKernel extends Kernel
                                 'dir' => '%kernel.project_dir%/tests/Fixture/EntityInAnotherSchema',
                                 'prefix' => 'Zenstruck\Foundry\Tests\Fixture\EntityInAnotherSchema',
                                 'alias' => 'Migrate',
-                            ]
+                            ],
                         ]
                         : []
                     ),

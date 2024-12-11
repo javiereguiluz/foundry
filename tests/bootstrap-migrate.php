@@ -17,16 +17,16 @@ use Zenstruck\Foundry\Tests\Fixture\MigrationTests\TestMigrationKernel;
 use function Zenstruck\Foundry\application;
 use function Zenstruck\Foundry\runCommand;
 
-require \dirname(__DIR__) . '/vendor/autoload.php';
+require \dirname(__DIR__).'/vendor/autoload.php';
 
 $fs = new Filesystem();
 
 $fs->remove(__DIR__.'/../var');
 
-(new Dotenv())->usePutenv()->loadEnv(__DIR__ . '/../.env');
+(new Dotenv())->usePutenv()->loadEnv(__DIR__.'/../.env');
 
-$fs->remove(__DIR__ . '/Fixture/MigrationTests/Migrations');
-$fs->mkdir(__DIR__ . '/Fixture/MigrationTests/Migrations');
+$fs->remove(__DIR__.'/Fixture/MigrationTests/Migrations');
+$fs->mkdir(__DIR__.'/Fixture/MigrationTests/Migrations');
 
 $kernel = new TestMigrationKernel('test', true);
 $kernel->boot();
@@ -37,8 +37,8 @@ runCommand($application, 'doctrine:database:drop --if-exists --force', canFail: 
 runCommand($application, 'doctrine:database:create', canFail: true);
 
 $configuration = '';
-if (getenv('WITH_MIGRATION_CONFIGURATION_FILE')) {
-    $configuration = '--configuration '.getcwd().'/'.getenv('WITH_MIGRATION_CONFIGURATION_FILE');
+if (\getenv('WITH_MIGRATION_CONFIGURATION_FILE')) {
+    $configuration = '--configuration '.\getcwd().'/'.\getenv('WITH_MIGRATION_CONFIGURATION_FILE');
 }
 runCommand($application, "doctrine:migrations:diff {$configuration}");
 runCommand($application, 'doctrine:database:drop --force', canFail: true);

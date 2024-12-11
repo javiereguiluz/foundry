@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\KernelInterface;
  */
 function runCommand(Application $application, string $command, bool $canFail = false): void
 {
-    $exit = $application->run(new StringInput("$command --no-interaction"), $output = new BufferedOutput());
+    $exit = $application->run(new StringInput("{$command} --no-interaction"), $output = new BufferedOutput());
 
     if (0 !== $exit && !$canFail) {
         throw new \RuntimeException(\sprintf('Error running "%s": %s', $command, $output->fetch()));
