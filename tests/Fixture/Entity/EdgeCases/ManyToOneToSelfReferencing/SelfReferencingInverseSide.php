@@ -30,6 +30,6 @@ class SelfReferencingInverseSide
     #[ORM\ManyToOne()]
     public ?SelfReferencingInverseSide $inverseSide = null;
 
-    #[ORM\OneToOne(mappedBy: 'inverseSide')]
+    #[ORM\OneToMany(targetEntity: OwningSide::class, mappedBy: 'inverseSide')]
     public ?OwningSide $owningSide = null;
 }

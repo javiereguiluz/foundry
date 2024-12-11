@@ -8,7 +8,7 @@ on:
 
 jobs:
   tests:
-    name: P:${{ matrix.php }}, S:${{ matrix.symfony }}, D:${{ matrix.database }}, PU:${{ matrix.phpunit || 9 }}${{ matrix.deps == 'lowest' && ' (lowest)' || '' }}${{ matrix.without-dama == 0 && contains(matrix.database, 'sql') && ' (dama)' || '' }}${{ !contains(matrix.database, 'sql') && '' || matrix.use-migrate == 1 && ' (migrate)' || ' (schema)' }}${{ matrix.use-phpunit-extension == 1 && ' (phpunit extension)' || '' }}
+    name: P:${{ matrix.php }}, S:${{ matrix.symfony }}, D:${{ matrix.database }}, PU:${{ matrix.phpunit || 9 }}${{ matrix.deps == 'lowest' && ' (lowest)' || '' }}${{ matrix.without-dama == 0 && contains(matrix.database, 'sql') && ' (dama)' || '' }}${{ matrix.use-phpunit-extension == 1 && ' (phpunit extension)' || '' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -20,7 +20,6 @@ jobs:
         # default values:
         # deps: [ highest ]
         # without-dama: [ 0 ]
-        # use-migrate: [ 0 ]
         # use-phpunit-extension: [ 0 ]
         # phpunit: [ 9 ]
 
@@ -35,7 +34,6 @@ jobs:
           - {php: 8.3, symfony: '*', database: sqlite, without-dama: 1}
           - {php: 8.3, symfony: '*', database: sqlite, without-dama: 1, deps: lowest}
           - {php: 8.3, symfony: '*', database: mysql, deps: lowest}
-          - {php: 8.3, symfony: '*', database: mysql, use-migrate: 1}
           - {php: 8.3, symfony: '*', database: mysql|mongo, phpunit: 10}
           - {php: 8.3, symfony: '*', database: mysql|mongo, phpunit: 11}
           - {php: 8.3, symfony: '*', database: mysql|mongo, use-phpunit-extension: 1, phpunit: 11}
@@ -46,7 +44,6 @@ jobs:
       USE_DAMA_DOCTRINE_TEST_BUNDLE: ${{ matrix.without-dama == 0 && contains(matrix.database, 'sql') && 1 || 0 }}
       USE_FOUNDRY_PHPUNIT_EXTENSION: ${{ matrix.use-phpunit-extension || 0 }}
       PHPUNIT_VERSION: ${{ matrix.phpunit || 9 }}
-      DATABASE_RESET_MODE: ${{ matrix.use-migrate == 1 && 'migrate' || 'schema' }}
     services:
       postgres:
         image: ${{ contains(matrix.database, 'pgsql') && 'postgres:15' || '' }}
@@ -90,6 +87,69 @@ jobs:
 
       - name: Test
         run: ./phpunit
+        shell: bash
+
+  test-reset-database-with-migration:
+    name: Test migration - D:${{ matrix.database }} ${{ matrix.use-dama == 1 && ' (dama)' || '' }} ${{ contains(matrix.with-migration-configuration-file, 'transactional') && '(configuration file transactional)' || contains(matrix.with-migration-configuration-file, 'configuration') && '(configuration file)' || '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [ mysql, pgsql, sqlite ]
+        use-dama: [ 0, 1 ]
+        with-migration-configuration-file:
+          - ''
+          - 'tests/Fixture/MigrationTests/configs/migration-configuration.php'
+          - 'tests/Fixture/MigrationTests/configs/migration-configuration-transactional.php'
+        exclude:
+          # there is currently a bug with MySQL and transactional migrations
+          - database: mysql
+            with-migration-configuration-file: 'tests/Fixture/MigrationTests/configs/migration-configuration-transactional.php'
+    env:
+      DATABASE_URL: ${{ contains(matrix.database, 'mysql') && 'mysql://root:root@localhost:3306/foundry?serverVersion=5.7.42' || contains(matrix.database, 'pgsql') && 'postgresql://root:root@localhost:5432/foundry?serverVersion=15' || 'sqlite:///%kernel.project_dir%/var/data.db' }}
+      MONGO_URL: ''
+      USE_DAMA_DOCTRINE_TEST_BUNDLE: ${{ matrix.use-dama == 1 && 1 || 0 }}
+      WITH_MIGRATION_CONFIGURATION_FILE: ${{ matrix.with-migration-configuration-file }}
+      PHPUNIT_VERSION: 9
+    services:
+      postgres:
+        image: ${{ contains(matrix.database, 'pgsql') && 'postgres:15' || '' }}
+        env:
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: foundry
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          coverage: none
+          tools: flex
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v2
+        with:
+          dependency-versions: highest
+          composer-options: --prefer-dist
+        env:
+          SYMFONY_REQUIRE: 7.1.*
+
+      - name: Set up MySQL
+        if: contains(matrix.database, 'mysql')
+        run: sudo /etc/init.d/mysql start
+
+      - name: Test
+        run: ./phpunit --testsuite migrate --bootstrap tests/bootstrap-migrate.php
         shell: bash
 
   test-with-paratest:
