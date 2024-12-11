@@ -2037,7 +2037,7 @@ If your stories require dependencies, you can define them as a service:
 
         public function build(): void
         {
-            // $this->myService can be used here here to help build this story
+            // $this->myService can be used here to help build this story
         }
     }
 
