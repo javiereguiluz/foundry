@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## [v2.3.0](https://github.com/zenstruck/foundry/releases/tag/v2.3.0)
+
+December 11th, 2024 - [v2.2.2...v2.3.0](https://github.com/zenstruck/foundry/compare/v2.2.2...v2.3.0)
+
+* b16b227 Update index.rst (#740) by @OskarStark, @nikophil
+* 854220f Figo highlighting and use CPP (#740) by @OskarStark
+* dfe6bab tests: add paratest permutation (#736) by @nikophil
+* af64c35 fix: detect if relation is oneToOne (#732) by @nikophil
+* 59867c3 minor: change versions requirements (#737) by @nikophil
+* c8f5046 Fix PHPUnit constraint requirement in FoundryExtension (#735) by @HypeMC
+* 4cb7447 Typo in Immutable section (#731) by @franckranaivo
+* 403d9e9 fix: Fix the parameter name of the first and last methods (#730) by @marien-probesys
+* 0867ad6 feat: add `#[WithStory]` attribute (#728) by @nikophil
+* c5d0bdd fix: can create inversed one to one with non nullable (#726) by @nikophil
+* 0e7ac6f docs: Fix Story phpdocs (#727) by @simondaigre, @nikophil
+* f48ffd1 fix: can create inversed one to one (#659) by @nikophil
+* 6d08784 fix: bug with one to many (#722) by @nikophil
+* efadea8 docs:fix code blocks not showing up (#723) by @AndreasA
+* edf287e minor: Add templated types to flush_after (#719) by @BackEndTea
+
 ## [v2.2.2](https://github.com/zenstruck/foundry/releases/tag/v2.2.2)
 
 November 5th, 2024 - [v2.2.1...v2.2.2](https://github.com/zenstruck/foundry/compare/v2.2.1...v2.2.2)
