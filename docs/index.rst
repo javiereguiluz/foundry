@@ -2025,24 +2025,19 @@ If your stories require dependencies, you can define them as a service:
     namespace App\Story;
 
     use App\Factory\PostFactory;
-    use App\Service\ServiceA;
-    use App\Service\ServiceB;
+    use App\Service\MyService;
     use Zenstruck\Foundry\Story;
 
     final class PostStory extends Story
     {
-        private $serviceA;
-        private $serviceB;
-
-        public function __construct(ServiceA $serviceA, ServiceB $serviceB)
-        {
-            $this->serviceA = $serviceA;
-            $this->serviceB = $serviceB;
+        public function __construct(
+            private MyService $myService,
+        ) {
         }
 
         public function build(): void
         {
-            // can use $this->serviceA, $this->serviceB here to help build this story
+            // $this->myService can be used here to help build this story
         }
     }
 
@@ -2160,7 +2155,7 @@ Objects can be fetched from pools in your tests, fixtures or other stories:
 
 .. versionadded:: 2.3
 
-    The `#[WithStory]` attribute was added in Foundry 2.3.
+    The ``#[WithStory]`` attribute was added in Foundry 2.3.
 
 .. warning::
 
