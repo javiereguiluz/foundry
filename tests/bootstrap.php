@@ -12,10 +12,10 @@
 use Symfony\Component\Dotenv\Dotenv;
 use Symfony\Component\Filesystem\Filesystem;
 
-require \dirname(__DIR__) . '/vendor/autoload.php';
+require \dirname(__DIR__).'/vendor/autoload.php';
 
 $fs = new Filesystem();
 
-$fs->remove(__DIR__ . '/../var');
+$fs->remove(__DIR__.'/../var');
 
-(new Dotenv())->usePutenv()->loadEnv(__DIR__ . '/../.env');
+(new Dotenv())->usePutenv()->loadEnv(__DIR__.'/../.env');
