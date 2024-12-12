@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [v2.3.1](https://github.com/zenstruck/foundry/releases/tag/v2.3.1)
+
+December 12th, 2024 - [v2.3.0...v2.3.1](https://github.com/zenstruck/foundry/compare/v2.3.0...v2.3.1)
+
+* 138801d chore: remove error handler hack (#729) by @nikophil
+* cd9dbf5 refactor: extract reset:migration tests in another testsuite (#692) by @nikophil
+
 ## [v2.3.0](https://github.com/zenstruck/foundry/releases/tag/v2.3.0)
 
 December 11th, 2024 - [v2.2.2...v2.3.0](https://github.com/zenstruck/foundry/compare/v2.2.2...v2.3.0)
