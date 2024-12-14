@@ -366,12 +366,12 @@ abstract class PersistentObjectFactory extends ObjectFactory
     }
 
     /**
-     * Schedule any new object for insert right after instantiation
+     * Schedule any new object for insert right after instantiation.
      */
     final protected function initializeInternal(): static
     {
         return $this->afterInstantiate(
-            static function (object $object, array $parameters, PersistentObjectFactory $factory): void {
+            static function(object $object, array $parameters, PersistentObjectFactory $factory): void {
                 if (!$factory->isPersisting()) {
                     return;
                 }
