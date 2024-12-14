@@ -242,7 +242,7 @@ final class PersistenceManager
     /**
      * @template T of object
      *
-     * @param class-string<T> $class
+     * @param  class-string<T>  $class
      * @return ClassMetadata<T>
      */
     public function metadataFor(string $class): ClassMetadata

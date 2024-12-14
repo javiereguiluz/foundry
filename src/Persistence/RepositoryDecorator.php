@@ -117,7 +117,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function findAll(): array
     {
-        return array_values($this->inner()->findAll());
+        return \array_values($this->inner()->findAll());
     }
 
     /**
@@ -128,7 +128,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null): array
     {
-        return array_values($this->inner()->findBy($this->normalize($criteria), $orderBy, $limit, $offset));
+        return \array_values($this->inner()->findBy($this->normalize($criteria), $orderBy, $limit, $offset));
     }
 
     /**
