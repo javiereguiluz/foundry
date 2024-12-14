@@ -112,24 +112,24 @@ abstract class Factory
     abstract public function create(array|callable $attributes = []): mixed;
 
     /**
-     * @return FactoryCollection<T>
+     * @return FactoryCollection<T, static>
      */
     final public function many(int $count): FactoryCollection
     {
-        return FactoryCollection::many($this, $count);
+        return FactoryCollection::many($this, $count); // @phpstan-ignore return.type
     }
 
     /**
-     * @return FactoryCollection<T>
+     * @return FactoryCollection<T, static>
      */
     final public function range(int $min, int $max): FactoryCollection
     {
-        return FactoryCollection::range($this, $min, $max);
+        return FactoryCollection::range($this, $min, $max); // @phpstan-ignore return.type
     }
 
     /**
      * @phpstan-param Sequence $sequence
-     * @return FactoryCollection<T>
+     * @return FactoryCollection<T, static>
      */
     final public function sequence(iterable|callable $sequence): FactoryCollection
     {
@@ -137,7 +137,7 @@ abstract class Factory
             $sequence = $sequence();
         }
 
-        return FactoryCollection::sequence($this, $sequence);
+        return FactoryCollection::sequence($this, $sequence); // @phpstan-ignore return.type
     }
 
     /**
@@ -252,7 +252,7 @@ abstract class Factory
     /**
      * @internal
      *
-     * @param FactoryCollection<mixed> $collection
+     * @param FactoryCollection<mixed, Factory<mixed>> $collection
      *
      * @return self<mixed>[]
      */
