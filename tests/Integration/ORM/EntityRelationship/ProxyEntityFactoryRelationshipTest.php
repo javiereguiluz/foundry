@@ -1,43 +1,37 @@
 <?php
 
-/*
- * This file is part of the zenstruck/foundry package.
- *
- * (c) Kevin Bond <kevinbond@gmail.com>
- *
- * For the full copyright and license information, please view the LICENSE
- * file that was distributed with this source code.
- */
+declare(strict_types=1);
 
-namespace Zenstruck\Foundry\Tests\Integration\ORM;
+namespace Zenstruck\Foundry\Tests\Integration\ORM\EntityRelationship;
 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\Proxy as DoctrineProxy;
 use PHPUnit\Framework\AssertionFailedError;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RequiresPhpunit;
+use PHPUnit\Framework\Attributes\Test;
 use Zenstruck\Assert;
 use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
-use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 use Zenstruck\Foundry\Persistence\Proxy;
-use Zenstruck\Foundry\Tests\Fixture\Entity\Address;
-use Zenstruck\Foundry\Tests\Fixture\Entity\Category;
+use Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\UsingRelationships;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Contact;
-use Zenstruck\Foundry\Tests\Fixture\Entity\Tag;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Address\ProxyAddressFactory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Category\ProxyCategoryFactory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Contact\ProxyContactFactory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Tag\ProxyTagFactory;
 
 /**
+ * @author Kevin Bond <kevinbond@gmail.com>
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
- *
- * @method PersistentProxyObjectFactory<Contact>  contactFactory()
- * @method PersistentProxyObjectFactory<Category> categoryFactory()
- * @method PersistentProxyObjectFactory<Tag>      tagFactory()
- * @method PersistentProxyObjectFactory<Address>  addressFactory()
+ * @requires PHPUnit ^11.4
  */
-abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelationshipTestCase
+#[RequiresPhpunit('^11.4')]
+final class ProxyEntityFactoryRelationshipTest extends EntityFactoryRelationshipTestCase
 {
-    /**
-     * @see https://github.com/zenstruck/foundry/issues/42
-     *
-     * @test
-     */
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
     public function doctrine_proxies_are_converted_to_foundry_proxies(): void
     {
         static::contactFactory()->create(['category' => static::categoryFactory()]);
@@ -57,9 +51,10 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         $this->assertInstanceOf(static::categoryFactory()::class(), $category);
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
     public function it_can_add_proxy_to_many_to_one(): void
     {
         $contact = static::contactFactory()->create();
@@ -71,9 +66,10 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         static::contactFactory()::assert()->exists(['category' => $category]);
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['tags'])]
     public function it_can_add_proxy_to_one_to_many(): void
     {
         $contact = static::contactFactory()->create();
@@ -86,9 +82,8 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         self::assertContains($contact->_real(), $tag->getContacts());
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
     public function can_assert_persisted(): void
     {
         static::contactFactory()->create()->_assertPersisted();
@@ -98,9 +93,8 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         ;
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
     public function can_assert_not_persisted(): void
     {
         static::contactFactory()->withoutPersisting()->create()->_assertNotPersisted();
@@ -110,9 +104,8 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         ;
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
     public function can_remove_and_assert_not_persisted(): void
     {
         static::contactFactory()
@@ -123,9 +116,8 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
         ;
     }
 
-    /**
-     * @test
-     */
+    /** @test */
+    #[Test]
     public function cannot_use_assert_persisted_when_entity_has_changes(): void
     {
         $contact = static::contactFactory()->create();
@@ -133,5 +125,25 @@ abstract class ProxyEntityFactoryRelationshipTestCase extends EntityFactoryRelat
 
         $this->expectException(RefreshObjectFailed::class);
         $contact->_assertPersisted();
+    }
+
+    protected static function contactFactory(): ProxyContactFactory
+    {
+        return ProxyContactFactory::new();
+    }
+
+    protected static function categoryFactory(): ProxyCategoryFactory
+    {
+        return ProxyCategoryFactory::new();
+    }
+
+    protected static function tagFactory(): ProxyTagFactory
+    {
+        return ProxyTagFactory::new();
+    }
+
+    protected static function addressFactory(): ProxyAddressFactory
+    {
+        return ProxyAddressFactory::new();
     }
 }
