@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Zenstruck\Foundry\Tests\Integration\ORM\EntityRelationship;
 
 use Doctrine\ORM\EntityManagerInterface;
@@ -15,8 +24,8 @@ use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
-use Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\UsingRelationships;
 use Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\ChangesEntityRelationshipCascadePersist;
+use Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\UsingRelationships;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Address;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Category;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Contact;
@@ -32,7 +41,7 @@ use function Zenstruck\Foundry\Persistence\unproxy;
 #[RequiresPhpunit('^11.4')]
 abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
 {
-    use Factories, ChangesEntityRelationshipCascadePersist, ResetDatabase;
+    use ChangesEntityRelationshipCascadePersist, Factories, ResetDatabase;
 
     /** @test */
     #[Test]
@@ -78,26 +87,6 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
         $this->one_to_many([static::contactFactoryWithoutCategory()->create(), static::contactFactoryWithoutCategory()->create()]);
     }
 
-    /**
-     * @param FactoryCollection<Contact, PersistentObjectFactory<Contact>>|list<Factory<Contact>>|list<Contact> $contacts
-     */
-    private function one_to_many(FactoryCollection|array $contacts): void
-    {
-        $category = static::categoryFactory()->create([
-            'contacts' => $contacts,
-        ]);
-
-        static::contactFactory()::assert()->count(2);
-        static::categoryFactory()::assert()->count(1);
-
-        $this->assertNotNull($category->id);
-        $this->assertCount(2, $category->getContacts());
-
-        foreach ($category->getContacts() as $contact) {
-            $this->assertSame($category->id, $contact->getCategory()?->id);
-        }
-    }
-
     /** @test */
     #[Test]
     #[DataProvider('provideCascadeRelationshipsCombinations')]
@@ -136,24 +125,6 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
     public function many_to_many_owning_as_array(): void
     {
         $this->many_to_many([static::contactFactory(), static::contactFactory(), static::contactFactory()]);
-    }
-
-    /**
-     * @param FactoryCollection<Contact, PersistentObjectFactory<Contact>>|list<Factory<Contact>>|list<Contact> $contacts
-     */
-    private function many_to_many(FactoryCollection|array $contacts): void
-    {
-        $tag = static::tagFactory()->create([
-            'contacts' => $contacts,
-        ]);
-
-        static::contactFactory()::assert()->count(3);
-        static::tagFactory()::repository()->assert()->count(1);
-        $this->assertNotNull($tag->id);
-
-        foreach ($tag->getContacts() as $contact) {
-            $this->assertSame($tag->id, $contact->getTags()[0]?->id);
-        }
     }
 
     /** @test */
@@ -407,4 +378,42 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
 
     /** @return PersistentObjectFactory<Address> */
     abstract protected static function addressFactory(): PersistentObjectFactory;
+
+    /**
+     * @param FactoryCollection<Contact, PersistentObjectFactory<Contact>>|list<Factory<Contact>>|list<Contact> $contacts
+     */
+    private function one_to_many(FactoryCollection|array $contacts): void
+    {
+        $category = static::categoryFactory()->create([
+            'contacts' => $contacts,
+        ]);
+
+        static::contactFactory()::assert()->count(2);
+        static::categoryFactory()::assert()->count(1);
+
+        $this->assertNotNull($category->id);
+        $this->assertCount(2, $category->getContacts());
+
+        foreach ($category->getContacts() as $contact) {
+            $this->assertSame($category->id, $contact->getCategory()?->id);
+        }
+    }
+
+    /**
+     * @param FactoryCollection<Contact, PersistentObjectFactory<Contact>>|list<Factory<Contact>>|list<Contact> $contacts
+     */
+    private function many_to_many(FactoryCollection|array $contacts): void
+    {
+        $tag = static::tagFactory()->create([
+            'contacts' => $contacts,
+        ]);
+
+        static::contactFactory()::assert()->count(3);
+        static::tagFactory()::repository()->assert()->count(1);
+        $this->assertNotNull($tag->id);
+
+        foreach ($tag->getContacts() as $contact) {
+            $this->assertSame($tag->id, $contact->getTags()[0]?->id);
+        }
+    }
 }

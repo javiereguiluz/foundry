@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship;
 
 use PHPUnit\Event;
@@ -31,7 +40,7 @@ final class PhpUnitTestExtension implements Runner\Extension\Extension, Event\Te
             return;
         }
 
-        if (!method_exists($testMethod->className(), 'setCurrentProvidedMethodName')) {
+        if (!\method_exists($testMethod->className(), 'setCurrentProvidedMethodName')) {
             throw new \LogicException("Test \"{$testMethod->className()}::{$testMethod->methodName()}()\" should use trait ChangesEntityRelationshipCascadePersist.");
         }
 

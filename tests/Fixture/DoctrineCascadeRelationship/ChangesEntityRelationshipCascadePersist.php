@@ -2,6 +2,15 @@
 
 declare(strict_types=1);
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship;
 
 use Doctrine\ORM\Mapping\ClassMetadata;
@@ -45,8 +54,8 @@ trait ChangesEntityRelationshipCascadePersist
         }
 
         $usingRelationshipsAttributes = $testMethod->getAttributes(DataProvider::class);
-        if (count($usingRelationshipsAttributes) !== 1 || $usingRelationshipsAttributes[0]->newInstance()->methodName() !== 'provideCascadeRelationshipsCombinations') {
-            throw new \LogicException(sprintf('When using attribute "%s", you must use "provideCascadeRelationshipsCombinations" as unique a data provider.', UsingRelationships::class));
+        if (1 !== \count($usingRelationshipsAttributes) || 'provideCascadeRelationshipsCombinations' !== $usingRelationshipsAttributes[0]->newInstance()->methodName()) {
+            throw new \LogicException(\sprintf('When using attribute "%s", you must use "provideCascadeRelationshipsCombinations" as unique a data provider.', UsingRelationships::class));
         }
 
         /** @var ChangeCascadePersistOnLoadClassMetadataListener $changeCascadePersistListener */
@@ -68,6 +77,7 @@ trait ChangesEntityRelationshipCascadePersist
             // then we need to return at least one empty array to avoid an error
             // in PHPUnit 12, we will be able to use #[RequiresEnvironmentVariable('DATABASE_URL')] to prevent this
             yield ['']; // @phpstan-ignore generator.valueType
+
             return;
         }
 
@@ -92,14 +102,14 @@ trait ChangesEntityRelationshipCascadePersist
             $metadata = $persistenceManager->metadataFor($class);
 
             if (!$metadata instanceof ClassMetadata || $metadata->isEmbeddedClass) {
-                throw new \InvalidArgumentException("$class is not an entity using ORM");
+                throw new \InvalidArgumentException("{$class} is not an entity using ORM");
             }
 
             foreach ($fields as $field) {
                 try {
                     $association = $metadata->getAssociationMapping($field);
                 } catch (MappingException) {
-                    throw new \LogicException(sprintf("Wrong parameters for attribute \"%s\". Association \"$class::\$$field\" does not exist.", UsingRelationships::class));
+                    throw new \LogicException(\sprintf("Wrong parameters for attribute \"%s\". Association \"{$class}::\${$field}\" does not exist.", UsingRelationships::class));
                 }
 
                 $relationshipFields[] = ['class' => $association['sourceEntity'], 'field' => $association['fieldName']];
