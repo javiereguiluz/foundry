@@ -1051,7 +1051,7 @@ still wrapped in a ``Proxy`` to optionally save later.
 
     $post = PostFactory::new()->withoutPersisting()->create(); // returns Post|Proxy
     $post->setTitle('something else'); // do something with object
-    $post->save(); // persist the Post (save() is a method on Proxy)
+    $post->_save(); // persist the Post (save() is a method on Proxy)
 
     $post = PostFactory::new()->withoutPersisting()->create()->object(); // actual Post object
 
