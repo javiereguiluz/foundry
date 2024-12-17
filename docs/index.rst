@@ -1305,7 +1305,7 @@ speed. When this bundle is enabled, the database is dropped/created and migrated
 
 Additionally, it is possible to provide `configuration files <https://www.doctrine-project.org/projects/doctrine-migrations/en/current/reference/configuration.html#migrations-configuration>`_
 to be used by the migrations. The configuration files can be in any format supported by Doctrine Migrations (php, xml,
-json, yml). Then then command ``doctrine:migrations:migrate`` will run as many times as the number of configuration
+json, yml). Then the command ``doctrine:migrations:migrate`` will run as many times as the number of configuration
 files.
 
 .. configuration-block::
