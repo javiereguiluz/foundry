@@ -720,7 +720,7 @@ The following assumes the ``Comment`` entity has a many-to-one relationship with
     $post = PostFactory::createOne(); // instance of Proxy
 
     CommentFactory::createOne(['post' => $post]);
-    CommentFactory::createOne(['post' => $post->object()]); // functionally the same as above
+    CommentFactory::createOne(['post' => $post->_real()]); // functionally the same as above
 
     // Example 2: pre-create Posts and choose a random one
     PostFactory::createMany(5); // create 5 Posts
