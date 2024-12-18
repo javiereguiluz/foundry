@@ -50,6 +50,9 @@ abstract class BaseOrmResetter implements OrmResetter
 
     final protected function dropAndResetDatabase(Application $application): void
     {
+        return;
+
+
         foreach ($this->connections as $connectionName) {
             /** @var Connection $connection */
             $connection = $this->registry->getConnection($connectionName);
