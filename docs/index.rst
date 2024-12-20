@@ -11,7 +11,10 @@ Foundry supports ``doctrine/orm`` (with `doctrine/doctrine-bundle <https://githu
 ``doctrine/mongodb-odm`` (with `doctrine/mongodb-odm-bundle <https://github.com/doctrine/DoctrineMongoDBBundle>`_)
 or a combination of these.
 
-Want to watch a screencast 🎥 about it? Check out https://symfonycasts.com/foundry
+.. admonition:: Screencast
+    :class: screencast
+
+    Want to watch a screencast 🎥 about it? Check out `https://symfonycasts.com/foundry`__
 
 .. warning::
 
@@ -251,6 +254,8 @@ This command will generate a ``PostFactory`` class that looks like this:
             // ...
         }
 
+.. _defaults:
+
 In the ``defaults()``, you can return an array of all default values that any new object
 should have. `Faker`_ is available to easily get random data:
 
@@ -259,12 +264,21 @@ should have. `Faker`_ is available to easily get random data:
     protected function defaults(): array
     {
         return [
-            // Symfony's property-access component is used to populate the properties
-            // this means that setTitle() will be called or you can have a $title constructor argument
+            // use the built-in Faker integration to generate good random values...
             'title' => self::faker()->unique()->sentence(),
             'body' => self::faker()->sentence(),
+
+            // ...or generate the values yourself if you prefer
+            'createdAt' => new \DateTimeImmutable('today'),
         ];
     }
+
+These default values are applied to both the **constructor arguments** and the
+**properties** of the objects. For example, defining a default value for ``title``
+will first attempt to set a constructor argument called ``$title``. If that doesn't
+exist, the `PropertyAccess <https://symfony.com/doc/current/components/property_access.html>`_
+component will be used to call the ``setTitle()`` method or directly set the public
+``$title`` property. More about this in the :ref:`instantiation and hydration <instantiation>` section.
 
 .. tip::
 
@@ -616,15 +630,16 @@ You can override your factory's ``initialize()`` method to add default state/log
 
 .. _instantiation:
 
-Instantiation
-~~~~~~~~~~~~~
+Object Instantiation & Hydration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 By default, objects are instantiated in the normal fashion, by using the object's constructor. Attributes
-that match constructor arguments are used. Remaining attributes are set to the object using Symfony's
-`PropertyAccess <https://symfony.com/doc/current/components/property_access.html>`_ component
+that match constructor arguments are used. Remaining attributes are used in the hydration phase and set to the object
+using Symfony's `PropertyAccess <https://symfony.com/doc/current/components/property_access.html>`_ component
 (setters/public properties). Any extra attributes cause an exception to be thrown.
 
-You can customize the instantiator in several ways:
+You can customize the instantiator in several ways, so that Foundry will instantiate and hydrate your objects, using the
+attributes provided:
 
 ::
 
@@ -655,16 +670,29 @@ You can customize the instantiator in several ways:
         // use a "namedConstructor"
         ->instantiateWith(Instantiator::namedConstructor("methodName"))
 
-        // use a callable
+        // use a callable: it will be passed the attributes matching its parameters names,
+        // remaining attributes will be used in the hydration phase
         ->instantiateWith(Instantiator::use(function(string $title): object {
-            return new Post($title); // ... your own logic
+            return new Post($title); // ... your own instantiation logic
         }))
+    ;
 
-        // the instantiator is just a callable, you can provide your own
+If this does not suit your needs, the instantiator is just a callable. You can provide your own to have complete control
+over instantiation and hydration phases:
+
+::
+
         ->instantiateWith(function(array $attributes, string $class): object {
             return new Post(); // ... your own logic
         })
-    ;
+
+.. warning::
+
+    The ``instantiateWith(callable(...))`` method fully replaces the default instantiation
+    and object hydration system. Attributes defined in the ``defaults()`` method,
+    as well as any states defined with the ``with()`` method, **will not be
+    applied automatically**. However, they are available as arguments to the
+    ``instantiateWith()`` callable.
 
 You can customize the instantiator globally for all your factories (can still be overruled by factory instance
 instantiators):
@@ -720,7 +748,7 @@ The following assumes the ``Comment`` entity has a many-to-one relationship with
     $post = PostFactory::createOne(); // instance of Proxy
 
     CommentFactory::createOne(['post' => $post]);
-    CommentFactory::createOne(['post' => $post->object()]); // functionally the same as above
+    CommentFactory::createOne(['post' => $post->_real()]); // functionally the same as above
 
     // Example 2: pre-create Posts and choose a random one
     PostFactory::createMany(5); // create 5 Posts
@@ -843,8 +871,8 @@ The ``defaults()`` method is called everytime a factory is instantiated (even if
 creating it). Sometimes, you might not want your value calculated every time. For example, if you have a value for one
 of your attributes that:
 
- - has side effects (i.e. creating a file or fetching a random existing entity from another factory)
- - you only want to calculate once (i.e. creating an entity from another factory to pass as a value into multiple other factories)
+* has side effects (i.e. creating a file or fetching a random existing entity from another factory)
+* you only want to calculate once (i.e. creating an entity from another factory to pass as a value into multiple other factories)
 
 You can wrap the value in a ``LazyValue`` which ensures the value is only calculated when/if it's needed. Additionally,
 the LazyValue can be `memoized <https://en.wikipedia.org/wiki/Memoization>`_ so that it is only calculated once.
@@ -1051,7 +1079,7 @@ still wrapped in a ``Proxy`` to optionally save later.
 
     $post = PostFactory::new()->withoutPersisting()->create(); // returns Post|Proxy
     $post->setTitle('something else'); // do something with object
-    $post->save(); // persist the Post (save() is a method on Proxy)
+    $post->_save(); // persist the Post (save() is a method on Proxy)
 
     $post = PostFactory::new()->withoutPersisting()->create()->object(); // actual Post object
 
@@ -1305,7 +1333,7 @@ speed. When this bundle is enabled, the database is dropped/created and migrated
 
 Additionally, it is possible to provide `configuration files <https://www.doctrine-project.org/projects/doctrine-migrations/en/current/reference/configuration.html#migrations-configuration>`_
 to be used by the migrations. The configuration files can be in any format supported by Doctrine Migrations (php, xml,
-json, yml). Then then command ``doctrine:migrations:migrate`` will run as many times as the number of configuration
+json, yml). Then the command ``doctrine:migrations:migrate`` will run as many times as the number of configuration
 files.
 
 .. configuration-block::
@@ -2216,8 +2244,9 @@ Foundry is shipped with an extension for PHPUnit. You can install it by modifyin
         </phpunit>
 
 This extension provides the following features:
-- support for the `#[WithStory] Attribute`_
-- ability to use ``Factory::create()`` in `PHPUnit Data Providers`_ (along with PHPUnit ^11.4)
+
+* support for the `#[WithStory] Attribute`_
+* ability to use ``Factory::create()`` in `PHPUnit Data Providers`_ (along with PHPUnit ^11.4)
 
 .. versionadded:: 2.2
 
