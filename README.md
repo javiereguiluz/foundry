@@ -27,6 +27,7 @@ or a combination of these.
 Want to watch a screencast 🎥 about it? Check out https://symfonycasts.com/foundry
 
 **[Read the Documentation](https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html)**
+
 **[Upgrade guide to v2](https://github.com/zenstruck/foundry/blob/v2.0.0/UPGRADE-2.0.md)**
 
 ## How to contribute
@@ -55,7 +56,7 @@ $ ./phpunit
 # run "migrate" testsuite (with "migrate" reset database strategy)
 $ composer test-migrate
 # or
-$ ./phpunit --testsuite migrate --bootstrap tests/bootstrap-migrate.php
+$ ./phpunit --testsuite reset-database --bootstrap tests/bootstrap-reset-database.php
 ```
 
 ### Overriding the default configuration
@@ -74,9 +75,9 @@ MONGO_URL="" # disables Mongo
 USE_DAMA_DOCTRINE_TEST_BUNDLE="1" # enables dama/doctrine-test-bundle
 PHPUNIT_VERSION="11" # possible values: 9, 10, 11, 11.4
 
-# test reset database with configuration migration, 
-# only relevant for "migrate" testsuite
-WITH_MIGRATION_CONFIGURATION_FILE="tests/Fixture/MigrationTests/configs/migration-configuration.php" 
+# test reset database with migrations,
+# only relevant for "reset-database" testsuite
+MIGRATION_CONFIGURATION_FILE="tests/Fixture/MigrationTests/configs/migration-configuration.php"
 
 # run test suite with postgreSQL
 $ vendor/bin/phpunit

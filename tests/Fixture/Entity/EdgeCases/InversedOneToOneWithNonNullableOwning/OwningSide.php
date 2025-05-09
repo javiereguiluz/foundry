@@ -14,19 +14,15 @@ declare(strict_types=1);
 namespace Zenstruck\Foundry\Tests\Fixture\Entity\EdgeCases\InversedOneToOneWithNonNullableOwning;
 
 use Doctrine\ORM\Mapping as ORM;
+use Zenstruck\Foundry\Tests\Fixture\Model\Base;
 
 /**
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
  */
 #[ORM\Entity]
 #[ORM\Table('inversed_one_to_one_with_non_nullable_owning_owning_side')]
-class OwningSide
+class OwningSide extends Base
 {
-    #[ORM\Id]
-    #[ORM\Column]
-    #[ORM\GeneratedValue(strategy: 'AUTO')]
-    public ?int $id = null;
-
     #[ORM\OneToOne(inversedBy: 'owningSide')]
     public ?InverseSide $inverseSide = null;
 }

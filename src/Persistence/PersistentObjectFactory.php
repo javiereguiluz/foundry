@@ -14,6 +14,7 @@ namespace Zenstruck\Foundry\Persistence;
 use Doctrine\Persistence\ObjectRepository;
 use Symfony\Component\VarExporter\Exception\LogicException as VarExportLogicException;
 use Zenstruck\Foundry\Configuration;
+use Zenstruck\Foundry\Exception\FoundryNotBooted;
 use Zenstruck\Foundry\Exception\PersistenceDisabled;
 use Zenstruck\Foundry\Exception\PersistenceNotAvailable;
 use Zenstruck\Foundry\Factory;
@@ -22,7 +23,9 @@ use Zenstruck\Foundry\ObjectFactory;
 use Zenstruck\Foundry\Persistence\Exception\NotEnoughObjects;
 use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
 
+use function Zenstruck\Foundry\force;
 use function Zenstruck\Foundry\get;
+use function Zenstruck\Foundry\set;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -34,13 +37,13 @@ use function Zenstruck\Foundry\get;
  */
 abstract class PersistentObjectFactory extends ObjectFactory
 {
-    private bool $persist;
+    private PersistMode $persist = PersistMode::PERSIST;
 
     /** @phpstan-var list<callable(T, Parameters, static):void> */
     private array $afterPersist = [];
 
     /** @var list<callable(T):void> */
-    private array $tempAfterPersist = [];
+    private array $tempAfterInstantiate = [];
 
     /**
      * @phpstan-param mixed|Parameters $criteriaOrId
@@ -166,7 +169,7 @@ abstract class PersistentObjectFactory extends ObjectFactory
      */
     public static function repository(): ObjectRepository
     {
-        Configuration::instance()->assertPersistanceEnabled();
+        Configuration::instance()->assertPersistenceEnabled();
 
         return new RepositoryDecorator(static::class()); // @phpstan-ignore return.type
     }
@@ -196,9 +199,15 @@ abstract class PersistentObjectFactory extends ObjectFactory
     {
         $object = parent::create($attributes);
 
+        foreach ($this->tempAfterInstantiate as $callback) {
+            $callback($object);
+        }
+
+        $this->tempAfterInstantiate = [];
+
         $this->throwIfCannotCreateObject();
 
-        if (!$this->isPersisting()) {
+        if (PersistMode::PERSIST !== $this->persistMode()) {
             return $object;
         }
 
@@ -210,29 +219,13 @@ abstract class PersistentObjectFactory extends ObjectFactory
 
         $configuration->persistence()->save($object);
 
-        foreach ($this->tempAfterPersist as $callback) {
-            $callback($object);
-        }
-
-        $this->tempAfterPersist = [];
-
-        if ($this->afterPersist) {
-            $attributes = $this->normalizedParameters ?? throw new \LogicException('Factory::$normalizedParameters has not been initialized.');
-
-            foreach ($this->afterPersist as $callback) {
-                $callback($object, $attributes, $this);
-            }
-
-            $configuration->persistence()->save($object);
-        }
-
         return $object;
     }
 
     final public function andPersist(): static
     {
         $clone = clone $this;
-        $clone->persist = true;
+        $clone->persist = PersistMode::PERSIST;
 
         return $clone;
     }
@@ -240,7 +233,18 @@ abstract class PersistentObjectFactory extends ObjectFactory
     final public function withoutPersisting(): static
     {
         $clone = clone $this;
-        $clone->persist = false;
+        $clone->persist = PersistMode::WITHOUT_PERSISTING;
+
+        return $clone;
+    }
+
+    /**
+     * @internal
+     */
+    public function withPersistMode(PersistMode $persistMode): static
+    {
+        $clone = clone $this;
+        $clone->persist = $persistMode;
 
         return $clone;
     }
@@ -256,53 +260,77 @@ abstract class PersistentObjectFactory extends ObjectFactory
         return $clone;
     }
 
+    /**
+     * @internal
+     */
+    public function persistMode(): PersistMode
+    {
+        return $this->isPersistenceEnabled() ? $this->persist : PersistMode::WITHOUT_PERSISTING;
+    }
+
+    final public function isPersisting(): bool
+    {
+        return $this->persistMode()->isPersisting();
+    }
+
     protected function normalizeParameter(string $field, mixed $value): mixed
     {
         if (!Configuration::instance()->isPersistenceAvailable()) {
             return unproxy(parent::normalizeParameter($field, $value));
         }
 
-        if ($value instanceof self && isset($this->persist)) {
-            $value = $this->isPersisting()
-                ? $value->andPersist()
-                : $value->withoutPersisting();
+        if ($value instanceof self) {
+            $value = $value->withPersistMode($this->persist);
         }
 
         if ($value instanceof self) {
             $pm = Configuration::instance()->persistence();
 
-            $inversedRelationshipMetadata = $pm->inverseRelationshipMetadata(static::class(), $value::class(), $field);
+            $relationshipMetadata = $pm->inverseRelationshipMetadata(static::class(), $value::class(), $field);
 
-            // handle inversed OneToOne
-            if ($inversedRelationshipMetadata && !$inversedRelationshipMetadata->isCollection) {
-                $inverseField = $inversedRelationshipMetadata->inverseField;
+            // handle inverse OneToOne
+            if ($relationshipMetadata && !$relationshipMetadata->isCollection) {
+                $inverseField = $relationshipMetadata->inverseField;
 
-                // we create now the object to prevent "non-nullable" property errors,
-                // but we'll need to remove it once the current object is created
-                $inversedObject = unproxy($value->create());
-                $this->tempAfterPersist[] = static function(object $object) use ($value, $inverseField, $pm, $inversedObject) {
-                    // we cannot use the already created $inversedObject:
-                    // because we must also remove its potential newly created owner (here: "$oldObj")
-                    // but a cascade:["persist"] would remove too many things
-                    $value->create([$inverseField => $object]);
-                    $pm->refresh($object);
-                    $oldObj = get($inversedObject, $inverseField);
-                    delete($inversedObject);
-                    if ($oldObj) {
-                        delete($oldObj); // @phpstan-ignore argument.templateType
-                    }
-                };
+                $value = $value->withPersistMode(
+                    $this->isPersisting() ? PersistMode::NO_PERSIST_BUT_SCHEDULE_FOR_INSERT : PersistMode::WITHOUT_PERSISTING
+                );
 
-                return $inversedObject;
+                if (($fieldType = (new \ReflectionClass(static::class()))->getProperty($field)->getType())?->allowsNull()) {
+                    $this->tempAfterInstantiate[] = static function(object $object) use ($value, $inverseField, $field) {
+                        $inverseObject = $value->create([$inverseField => $object]);
+
+                        set($object, $field, unproxy($inverseObject, withAutoRefresh: false));
+                    };
+
+                    // we're using "force" here to avoid a potential type check in a setter
+                    return force(null);
+                } elseif (($inverseFieldType = (new \ReflectionClass($value::class()))->getProperty($inverseField)->getType())?->allowsNull()) {
+                    $inverseObject = unproxy(
+                        // we're using "force" here to avoid a potential type check in a setter
+                        $value->create([$inverseField => force(null)]),
+                        withAutoRefresh: false
+                    );
+
+                    $this->tempAfterInstantiate[] = static function(object $object) use ($inverseObject, $inverseField) {
+                        set($inverseObject, $inverseField, $object);
+                    };
+
+                    return $inverseObject;
+                } elseif (null === $fieldType || null === $inverseFieldType) {
+                    throw new \InvalidArgumentException(\sprintf("Cannot handle inverse OneToOne relationship: cannot determine types of \"%s::\${$field}\" and \"%s::\${$inverseField}\", please and type to the properties.", static::class(), $value::class()));
+                } else {
+                    throw new \InvalidArgumentException(\sprintf("Cannot handle inverse OneToOne relationship: both \"%s::\${$field}\" and \"%s::\${$inverseField}\" are not nullable, which will result in a circular dependency.", static::class(), $value::class()));
+                }
             }
         }
 
-        return unproxy(parent::normalizeParameter($field, $value));
+        return unproxy(parent::normalizeParameter($field, $value), withAutoRefresh: false);
     }
 
     protected function normalizeCollection(string $field, FactoryCollection $collection): array
     {
-        if (!$this->isPersisting() || !$collection->factory instanceof self) {
+        if (!Configuration::instance()->isPersistenceAvailable() || !$collection->factory instanceof self) {
             return parent::normalizeCollection($field, $collection);
         }
 
@@ -311,14 +339,28 @@ abstract class PersistentObjectFactory extends ObjectFactory
         $inverseRelationshipMetadata = $pm->inverseRelationshipMetadata(static::class(), $collection->factory::class(), $field);
 
         if ($inverseRelationshipMetadata && $inverseRelationshipMetadata->isCollection) {
-            $inverseField = $inverseRelationshipMetadata->inverseField;
+            $this->tempAfterInstantiate[] = function(object $object) use ($collection, $inverseRelationshipMetadata, $field) {
+                $inverseField = $inverseRelationshipMetadata->inverseField;
 
-            $this->tempAfterPersist[] = static function(object $object) use ($collection, $inverseField, $pm) {
-                $collection->create([$inverseField => $object]);
-                $pm->refresh($object);
+                $inverseObjects = $collection->withPersistMode(
+                    $this->isPersisting() ? PersistMode::NO_PERSIST_BUT_SCHEDULE_FOR_INSERT : PersistMode::WITHOUT_PERSISTING
+                )
+                    ->create([$inverseField => $object]);
+
+                $inverseObjects = unproxy($inverseObjects, withAutoRefresh: false);
+
+                // if the collection is indexed by a field, index the array
+                if ($inverseRelationshipMetadata->collectionIndexedBy) {
+                    $inverseObjects = \array_combine(
+                        \array_map(static fn($o) => get($o, $inverseRelationshipMetadata->collectionIndexedBy), $inverseObjects),
+                        \array_values($inverseObjects)
+                    );
+                }
+
+                set($object, $field, $inverseObjects);
             };
 
-            // creation delegated to afterPersist hook - return empty array here
+            // creation delegated to tempAfterInstantiate hook - return empty array here
             return [];
         }
 
@@ -326,59 +368,66 @@ abstract class PersistentObjectFactory extends ObjectFactory
     }
 
     /**
+     * This method will try to find entities in database if they are detached.
+     *
      * @internal
      */
     protected function normalizeObject(object $object): object
     {
-        $reflectionClass = new \ReflectionClass($object::class);
-
-        if ($reflectionClass->isFinal()) {
-            return $object;
-        }
-
-        // readonly classes exist since php 8.2 and proxyHelper supports them since 8.3
-        if (80200 <= \PHP_VERSION_ID && \PHP_VERSION_ID < 80300 && $reflectionClass->isReadonly()) {
-            return $object;
-        }
-
         $configuration = Configuration::instance();
 
-        if (!$configuration->isPersistenceAvailable() || !$configuration->persistence()->hasPersistenceFor($object)) {
+        if (
+            !$this->isPersisting()
+            || !$configuration->isPersistenceAvailable()
+        ) {
             return $object;
+        }
+
+        $object = unproxy($object, withAutoRefresh: false);
+
+        $persistenceManager = $configuration->persistence();
+        if (!$persistenceManager->hasPersistenceFor($object)) {
+            return $object;
+        }
+
+        if (!$persistenceManager->isPersisted($object)) {
+            $persistenceManager->scheduleForInsert($object);
         }
 
         try {
-            return proxy($object)->_refresh()->_real();
+            return $configuration->persistence()->refresh($object);
         } catch (RefreshObjectFailed|VarExportLogicException) {
             return $object;
         }
     }
 
-    final protected function isPersisting(): bool
-    {
-        $config = Configuration::instance();
-
-        if ($config->isPersistenceAvailable() && !$config->persistence()->isEnabled()) {
-            return false;
-        }
-
-        return $this->persist ?? $config->isPersistenceAvailable() && $config->persistence()->isEnabled() && $config->persistence()->autoPersist(static::class());
-    }
-
-    /**
-     * Schedule any new object for insert right after instantiation.
-     */
     final protected function initializeInternal(): static
     {
-        return $this->afterInstantiate(
-            static function(object $object, array $parameters, PersistentObjectFactory $factory): void {
-                if (!$factory->isPersisting()) {
-                    return;
-                }
+        if (!Configuration::isBooted()) {
+            return $this;
+        }
 
-                Configuration::instance()->persistence()->scheduleForInsert($object);
-            }
-        );
+        $this->persist = $this->isPersistenceEnabled() ? PersistMode::PERSIST : PersistMode::WITHOUT_PERSISTING;
+
+        // Schedule any new object for insert right after instantiation
+        return parent::initializeInternal()
+            ->afterInstantiate(
+                static function(object $object, array $parameters, PersistentObjectFactory $factoryUsed): void {
+                    if (!$factoryUsed->isPersisting()) {
+                        return;
+                    }
+
+                    $afterPersistCallbacks = [];
+
+                    foreach ($factoryUsed->afterPersist as $afterPersist) {
+                        $afterPersistCallbacks[] = static function() use ($object, $afterPersist, $parameters, $factoryUsed): void {
+                            $afterPersist($object, $parameters, $factoryUsed);
+                        };
+                    }
+
+                    Configuration::instance()->persistence()->scheduleForInsert($object, $afterPersistCallbacks);
+                }
+            );
     }
 
     private function throwIfCannotCreateObject(): void
@@ -401,5 +450,14 @@ abstract class PersistentObjectFactory extends ObjectFactory
         }
 
         throw new \LogicException(\sprintf('Cannot create object in a data provider for non-proxy factories. Transform your factory into a "%s", or call "create()" method in the test. See https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#phpunit-data-providers', PersistentProxyObjectFactory::class));
+    }
+
+    private function isPersistenceEnabled(): bool
+    {
+        try {
+            return Configuration::instance()->isPersistenceEnabled();
+        } catch (FoundryNotBooted) {
+            return false;
+        }
     }
 }

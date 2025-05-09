@@ -26,8 +26,6 @@ use Zenstruck\Foundry\Persistence\Exception\NotEnoughObjects;
  * @implements \IteratorAggregate<array-key, T>
  * @mixin I
  *
- * @final
- *
  * @phpstan-import-type Parameters from Factory
  */
 class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Countable
@@ -91,7 +89,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function find($id): ?object
     {
-        if (\is_array($id) && (empty($id) || !array_is_list($id))) {
+        if (\is_array($id) && (empty($id) || !\array_is_list($id))) {
             /** @var T|null $object */
             $object = $this->findOneBy($id);
 
@@ -171,7 +169,18 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function random(array $criteria = []): object
     {
-        return $this->randomSet(1, $criteria)[0];
+        $count = $this->count($criteria);
+        $offset = 0;
+
+        if (0 === $count) {
+            throw new NotEnoughObjects(\sprintf('At least %d "%s" object(s) must have been persisted (%d persisted).', 1, $this->getClassName(), 0));
+        }
+
+        if ($count > 1) {
+            $offset = \random_int(0, $count - 1);
+        }
+
+        return $this->findBy($criteria, limit: 1, offset: $offset)[0];
     }
 
     /**
@@ -214,7 +223,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
             throw new NotEnoughObjects(\sprintf('At least %d "%s" object(s) must have been persisted (%d persisted).', $max, $this->getClassName(), \count($all)));
         }
 
-        return \array_slice($all, 0, \random_int($min, $max)); // @phpstan-ignore argument.type
+        return \array_slice($all, 0, \mt_rand($min, $max));
     }
 
     public function getIterator(): \Traversable

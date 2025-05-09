@@ -18,6 +18,9 @@ parameters:
     banned_code:
         non_ignorable: false
 
+    bootstrapFiles:
+        - bin/tools/phpbench/vendor/autoload.php
+
     ignoreErrors:
         # suppress strange behavior of PHPStan where it considers proxy() return type as *NEVER*
         - message: '#Return type of call to function Zenstruck\\Foundry\\Persistence\\proxy contains unresolvable type#'
@@ -38,7 +41,6 @@ parameters:
         - identifier: property.readOnlyByPhpDocDefaultValue
           paths:
             - src/Object/Hydrator.php
-            - src/Factory.php
             - src/ObjectFactory.php
             - src/Persistence/PersistentObjectFactory.php
 
@@ -46,7 +48,6 @@ parameters:
         - identifier: property.uninitializedReadonlyByPhpDoc
           paths:
             - src/Factory.php
-            - src/Persistence/PersistentObjectFactory.php
 
         # Hydrator and Factory are annotated @immutable
         - identifier: property.readOnlyByPhpDocAssignNotInConstructor

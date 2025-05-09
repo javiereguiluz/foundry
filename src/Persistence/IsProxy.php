@@ -97,12 +97,14 @@ trait IsProxy // @phpstan-ignore trait.unused
         return $this;
     }
 
-    public function _real(): object
+    public function _real(bool $withAutoRefresh = true): object
     {
-        try {
-            // we don't want the auto-refresh mechanism to break "real" object retrieval
-            $this->_autoRefresh();
-        } catch (\Throwable) {
+        if ($withAutoRefresh) {
+            try {
+                // we don't want the auto-refresh mechanism to break "real" object retrieval
+                $this->_autoRefresh();
+            } catch (\Throwable) {
+            }
         }
 
         return $this->initializeLazyObject();
@@ -134,17 +136,10 @@ trait IsProxy // @phpstan-ignore trait.unused
 
     private function isPersisted(): bool
     {
-        try {
-            $this->_refresh();
+        $this->initializeLazyObject();
+        $object = $this->lazyObjectState->realInstance;
 
-            return true;
-        } catch (RefreshObjectFailed $e) {
-            if ($e->objectWasDeleted()) {
-                return false;
-            }
-
-            throw $e;
-        }
+        return Configuration::instance()->persistence()->isPersisted($object);
     }
 
     private function _autoRefresh(): void

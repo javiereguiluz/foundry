@@ -19,6 +19,7 @@ use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Zenstruck\Foundry\Configuration;
 use Zenstruck\Foundry\Persistence\PersistenceManager;
 use Zenstruck\Foundry\Tests\Integration\RequiresORM;
 
@@ -112,14 +113,19 @@ trait ChangesEntityRelationshipCascadePersist
                     throw new \LogicException(\sprintf("Wrong parameters for attribute \"%s\". Association \"{$class}::\${$field}\" does not exist.", UsingRelationships::class));
                 }
 
-                $relationshipFields[] = ['class' => $association['sourceEntity'], 'field' => $association['fieldName']];
+                $relationshipFields[] = ['class' => $association['sourceEntity'], 'field' => $association['fieldName'], 'isOneToMany' => ClassMetadata::ONE_TO_MANY === $association['type']];
                 if ($association['inversedBy'] ?? $association['mappedBy'] ?? null) {
-                    $relationshipFields[] = ['class' => $association['targetEntity'], 'field' => $association['inversedBy'] ?? $association['mappedBy']];
+                    /** @var ClassMetadata<object> $metadataTargetEntity */
+                    $metadataTargetEntity = $persistenceManager->metadataFor($association['targetEntity']); // @phpstan-ignore argument.templateType
+                    $associationTargetEntity = $metadataTargetEntity->getAssociationMapping($association['inversedBy'] ?? $association['mappedBy']);
+                    $relationshipFields[] = ['class' => $associationTargetEntity['sourceEntity'], 'field' => $associationTargetEntity['fieldName'], 'isOneToMany' => ClassMetadata::ONE_TO_MANY === $associationTargetEntity['type']];
                 }
             }
         }
 
         yield from DoctrineCascadeRelationshipMetadata::allCombinations($relationshipFields);
+
+        Configuration::shutdown();
     }
 
     public static function setCurrentProvidedMethodName(string $methodName): void

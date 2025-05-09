@@ -12,6 +12,7 @@
 namespace Zenstruck\Foundry;
 
 use Faker;
+use Zenstruck\Foundry\Exception\FactoriesTraitNotUsed;
 use Zenstruck\Foundry\Exception\FoundryNotBooted;
 use Zenstruck\Foundry\Exception\PersistenceDisabled;
 use Zenstruck\Foundry\Exception\PersistenceNotAvailable;
@@ -41,6 +42,8 @@ final class Configuration
     /** @var \Closure():self|self|null */
     private static \Closure|self|null $instance = null;
 
+    private static ?int $fakerSeed = null;
+
     /**
      * @phpstan-param InstantiatorCallable $instantiator
      */
@@ -50,8 +53,23 @@ final class Configuration
         callable $instantiator,
         public readonly StoryRegistry $stories,
         private readonly ?PersistenceManager $persistence = null,
+        ?int $forcedFakerSeed = null,
     ) {
+        if (null === self::$instance) {
+            $this->faker->seed(self::fakerSeed($forcedFakerSeed));
+        }
+
         $this->instantiator = $instantiator;
+    }
+
+    public static function fakerSeed(?int $forcedFakerSeed = null): int
+    {
+        return self::$fakerSeed ??= ($forcedFakerSeed ?? \random_int(0, 1000000));
+    }
+
+    public static function resetFakerSeed(): void
+    {
+        self::$fakerSeed = null;
     }
 
     /**
@@ -67,10 +85,15 @@ final class Configuration
         return (bool) $this->persistence;
     }
 
-    public function assertPersistanceEnabled(): void
+    public function isPersistenceEnabled(): bool
     {
-        if (!$this->isPersistenceAvailable() || !$this->persistence()->isEnabled()) {
-            throw new PersistenceDisabled('Cannot get repository when persist is disabled.');
+        return $this->isPersistenceAvailable() && $this->persistence()->isEnabled();
+    }
+
+    public function assertPersistenceEnabled(): void
+    {
+        if (!$this->isPersistenceEnabled()) {
+            throw new PersistenceDisabled('Cannot get repository when persist is disabled (if in a unit test, you probably should not try to get the repository).');
         }
     }
 
@@ -84,6 +107,8 @@ final class Configuration
         if (!self::$instance) {
             throw new FoundryNotBooted();
         }
+
+        FactoriesTraitNotUsed::throwIfComingFromKernelTestCaseWithoutFactoriesTrait();
 
         return \is_callable(self::$instance) ? (self::$instance)() : self::$instance;
     }

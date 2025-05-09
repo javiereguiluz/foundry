@@ -11,6 +11,9 @@
 
 namespace Zenstruck\Foundry;
 
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
+use Zenstruck\Foundry\Persistence\PersistMode;
+
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
  *
@@ -22,12 +25,28 @@ namespace Zenstruck\Foundry;
  */
 final class FactoryCollection implements \IteratorAggregate
 {
+    private PersistMode $persistMode;
+
     /**
      * @param TFactory $factory
      * @phpstan-param \Closure():iterable<Attributes>|\Closure():iterable<TFactory> $items
      */
     private function __construct(public readonly Factory $factory, private \Closure $items)
     {
+        $this->persistMode = $this->factory instanceof PersistentObjectFactory
+            ? $this->factory->persistMode()
+            : PersistMode::WITHOUT_PERSISTING;
+    }
+
+    /**
+     * @internal
+     */
+    public function withPersistMode(PersistMode $persistMode): static
+    {
+        $clone = clone $this;
+        $clone->persistMode = $persistMode;
+
+        return $clone;
     }
 
     /**
@@ -37,7 +56,7 @@ final class FactoryCollection implements \IteratorAggregate
      */
     public static function accepts(mixed $potentialFactories): bool
     {
-        if (!is_array($potentialFactories) || count($potentialFactories) === 0 || !array_is_list($potentialFactories)) {
+        if (!\is_array($potentialFactories) || 0 === \count($potentialFactories) || !\array_is_list($potentialFactories)) {
             return false;
         }
 
@@ -47,7 +66,7 @@ final class FactoryCollection implements \IteratorAggregate
 
         foreach ($potentialFactories as $potentialFactory) {
             if (!$potentialFactory instanceof ObjectFactory
-                || $potentialFactory::class() !== $potentialFactories[0]::class()) {
+                || $potentialFactories[0]::class() !== $potentialFactory::class()) {
                 return false;
             }
         }
@@ -92,11 +111,11 @@ final class FactoryCollection implements \IteratorAggregate
             throw new \InvalidArgumentException('Min must be less than max.');
         }
 
-        return new self($factory, static fn() => \array_fill(0, \random_int($min, $max), []));
+        return new self($factory, static fn() => \array_fill(0, \mt_rand($min, $max), []));
     }
 
     /**
-     * @param  TFactory           $factory
+     * @param TFactory $factory
      * @phpstan-param  iterable<Attributes> $items
      * @return self<T, TFactory>
      */
@@ -133,7 +152,39 @@ final class FactoryCollection implements \IteratorAggregate
             $factories[] = $this->factory->with($attributesOrFactory)->with(['__index' => $i++]);
         }
 
-        return $factories; // @phpstan-ignore return.type (PHPStan does not understand we have an array of factories)
+        return \array_map( // @phpstan-ignore return.type (PHPStan does not understand we have an array of factories)
+            function(Factory $f) {
+                if ($f instanceof PersistentObjectFactory) {
+                    return $f->withPersistMode($this->persistMode);
+                }
+
+                return $f;
+            },
+            $factories
+        );
+    }
+
+    /**
+     * @param list<mixed> $values
+     *
+     * @return self<T, TFactory>
+     */
+    public function distribute(string $field, array $values): self
+    {
+        $factories = $this->all();
+
+        if (\count($factories) !== \count($values)) {
+            throw new \InvalidArgumentException('Number of values must match number of factories.');
+        }
+
+        return new self(
+            $this->factory,
+            static fn() => \array_map(
+                static fn(Factory $f, $value) => $f->with([$field => $value]),
+                $factories,
+                $values
+            )
+        );
     }
 
     public function getIterator(): \Traversable

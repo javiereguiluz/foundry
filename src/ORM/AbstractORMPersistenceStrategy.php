@@ -41,10 +41,13 @@ abstract class AbstractORMPersistenceStrategy extends PersistenceStrategy
             return false;
         }
 
-        // cannot use UOW::recomputeSingleEntityChangeSet() here as it wrongly computes embedded objects as changed
-        $em->getUnitOfWork()->computeChangeSet($em->getClassMetadata($object::class), $object);
+        // we're cloning the UOW because computing change set has side effect
+        $unitOfWork = clone $em->getUnitOfWork();
 
-        return (bool) $em->getUnitOfWork()->getEntityChangeSet($object);
+        // cannot use UOW::recomputeSingleEntityChangeSet() here as it wrongly computes embedded objects as changed
+        $unitOfWork->computeChangeSet($em->getClassMetadata($object::class), $object);
+
+        return (bool) $unitOfWork->getEntityChangeSet($object);
     }
 
     final public function truncate(string $class): void
@@ -76,6 +79,11 @@ abstract class AbstractORMPersistenceStrategy extends PersistenceStrategy
     final public function isEmbeddable(object $object): bool
     {
         return $this->objectManagerFor($object::class)->getClassMetadata($object::class)->isEmbeddedClass;
+    }
+
+    final public function isScheduledForInsert(object $object): bool
+    {
+        return $this->objectManagerFor($object::class)->getUnitOfWork()->isScheduledForInsert($object);
     }
 
     final public function managedNamespaces(): array

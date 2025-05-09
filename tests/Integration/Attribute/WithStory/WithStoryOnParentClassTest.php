@@ -23,16 +23,13 @@ use Zenstruck\Foundry\Tests\Fixture\Stories\EntityPoolStory;
 
 /**
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
- * @requires PHPUnit ^11.0
+ * @requires PHPUnit >=11.0
  */
-#[RequiresPhpunit('^11.0')]
+#[RequiresPhpunit('>=11.0')]
 #[RequiresPhpunitExtension(FoundryExtension::class)]
 #[WithStory(EntityPoolStory::class)]
 final class WithStoryOnParentClassTest extends ParentClassWithStoryAttributeTestCase
 {
-    /**
-     * @test
-     */
     #[Test]
     public function can_use_story_in_attribute_from_parent_class(): void
     {

@@ -41,6 +41,7 @@ final class MakeFactory extends AbstractMaker
         private NoPersistenceObjectsAutoCompleter $noPersistenceObjectsAutoCompleter,
         private FactoryCandidatesClassesExtractor $factoryCandidatesClassesExtractor,
         private string $defaultNamespace,
+        private bool $addHints,
     ) {
     }
 
@@ -128,7 +129,7 @@ final class MakeFactory extends AbstractMaker
         foreach ($classes as $class) {
             $this->factoryGenerator->generateFactory(
                 $io,
-                MakeFactoryQuery::fromInput($input, $class, $generateAllFactories, $generator, $input->getOption('namespace') ?? $this->defaultNamespace));
+                MakeFactoryQuery::fromInput($input, $class, $generateAllFactories, $generator, $input->getOption('namespace') ?? $this->defaultNamespace, $this->addHints), );
         }
 
         $generator->writeChanges();
@@ -137,7 +138,7 @@ final class MakeFactory extends AbstractMaker
 
         $io->text([
             'Next: Open your new factory and set default values/states.',
-            'Find the documentation at https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#model-factories',
+            'Find the documentation at https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories',
         ]);
     }
 

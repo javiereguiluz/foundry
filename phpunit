@@ -16,7 +16,7 @@ check_phpunit_version() {
 }
 
 ### >> load env vars from .env files if not in CI and not from a composer script
-if [ -z "${CI:-}" ] && [ -z "${COMPOSER_BINARY:-}" ] ; then
+if [ -z "${CI:-}" ] ; then
   source .env
 
   if [ -f .env.local ]; then
@@ -26,8 +26,8 @@ fi
 ### <<
 
 ### >> update PHPUnit if needed
-if [[ " 9 10 11 " != *" ${PHPUNIT_VERSION-9} "* ]]; then
-  echo "❌ PHPUNIT_VERSION should be one of 9, 10, 11";
+if [[ " 9 10 11 12 " != *" ${PHPUNIT_VERSION-9} "* ]]; then
+  echo "❌ PHPUNIT_VERSION should be one of 9, 10, 11, 12";
   exit 1;
 fi
 
@@ -35,7 +35,7 @@ SHOULD_UPDATE_PHPUNIT=$(check_phpunit_version "${PHPUNIT_VERSION}")
 
 if [ "${SHOULD_UPDATE_PHPUNIT}" = "0" ]; then
   echo "ℹ️  Upgrading PHPUnit to ${PHPUNIT_VERSION}"
-  composer update brianium/paratest "phpunit/phpunit:^${PHPUNIT_VERSION}" -W
+  composer update dama/doctrine-test-bundle brianium/paratest "phpunit/phpunit:^${PHPUNIT_VERSION}" -W
 fi
 ### <<
 
@@ -62,7 +62,7 @@ case ${PHPUNIT_VERSION} in
     PHPUNIT_EXEC="${PHPUNIT_EXEC} -c phpunit-10.xml.dist"
     ;;
 
-  "11")
+  "11"|"12")
     PHPUNIT_EXEC="${PHPUNIT_EXEC} -c phpunit-10.xml.dist --extension Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\PhpUnitTestExtension"
 
     if [ "${USE_DAMA_DOCTRINE_TEST_BUNDLE:-0}" = "1" ]; then

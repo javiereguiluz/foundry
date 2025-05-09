@@ -31,6 +31,9 @@ final class PersistenceManager
     private bool $flush = true;
     private bool $persist = true;
 
+    /** @var list<callable():void> */
+    private array $afterPersistCallbacks = [];
+
     /**
      * @param iterable<PersistenceStrategy> $strategies
      */
@@ -72,17 +75,29 @@ final class PersistenceManager
         $om->persist($object);
         $this->flush($om);
 
+        if ($this->afterPersistCallbacks) {
+            $afterPersistCallbacks = $this->afterPersistCallbacks;
+            $this->afterPersistCallbacks = [];
+
+            foreach ($afterPersistCallbacks as $afterPersistCallback) {
+                $afterPersistCallback();
+            }
+
+            $this->save($object);
+        }
+
         return $object;
     }
 
     /**
      * @template T of object
      *
-     * @param T $object
+     * @param T                     $object
+     * @param list<callable():void> $afterPersistCallbacks
      *
      * @return T
      */
-    public function scheduleForInsert(object $object): object
+    public function scheduleForInsert(object $object, array $afterPersistCallbacks = []): object
     {
         if ($object instanceof Proxy) {
             $object = unproxy($object);
@@ -90,6 +105,8 @@ final class PersistenceManager
 
         $om = $this->strategyFor($object::class)->objectManagerFor($object::class);
         $om->persist($object);
+
+        $this->afterPersistCallbacks = [...$this->afterPersistCallbacks, ...$afterPersistCallbacks];
 
         return $object;
     }
@@ -175,6 +192,23 @@ final class PersistenceManager
         return $object;
     }
 
+    public function isPersisted(object $object): bool
+    {
+        // prevents doctrine to use its cache and think the object is persisted
+        if ($this->strategyFor($object::class)->isScheduledForInsert($object)) {
+            return false;
+        }
+
+        if ($object instanceof Proxy) {
+            $object = unproxy($object);
+        }
+
+        $om = $this->strategyFor($object::class)->objectManagerFor($object::class);
+        $id = $om->getClassMetadata($object::class)->getIdentifierValues($object);
+
+        return $id && null !== $om->find($object::class, $id);
+    }
+
     /**
      * @template T of object
      *
@@ -203,14 +237,6 @@ final class PersistenceManager
         $class = unproxy($class);
 
         $this->strategyFor($class)->truncate($class);
-    }
-
-    /**
-     * @param class-string $class
-     */
-    public function autoPersist(string $class): bool
-    {
-        return $this->strategyFor(unproxy($class))->autoPersist();
     }
 
     /**
@@ -295,7 +321,9 @@ final class PersistenceManager
     public function hasPersistenceFor(object $object): bool
     {
         try {
-            return (bool) $this->strategyFor($object::class);
+            $strategy = $this->strategyFor($object::class);
+
+            return !$strategy->isEmbeddable($object);
         } catch (NoPersistenceStrategy) {
             return false;
         }

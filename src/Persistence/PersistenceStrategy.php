@@ -23,16 +23,8 @@ use Doctrine\Persistence\ObjectManager;
  */
 abstract class PersistenceStrategy
 {
-    /**
-     * @param array<string,mixed> $config
-     */
-    public function __construct(protected readonly ManagerRegistry $registry, protected readonly array $config)
+    public function __construct(protected readonly ManagerRegistry $registry)
     {
-    }
-
-    public function autoPersist(): bool
-    {
-        return $this->config['auto_persist'];
     }
 
     /**
@@ -70,7 +62,7 @@ abstract class PersistenceStrategy
 
     /**
      * @template T of object
-     * @param class-string<T> $class
+     * @param  class-string<T>  $class
      * @return ClassMetadata<T>
      *
      * @throws MappingException If $class is not managed by Doctrine
@@ -99,4 +91,6 @@ abstract class PersistenceStrategy
     abstract public function embeddablePropertiesFor(object $object, string $owner): ?array;
 
     abstract public function isEmbeddable(object $object): bool;
+
+    abstract public function isScheduledForInsert(object $object): bool;
 }

@@ -14,6 +14,7 @@ declare(strict_types=1);
 namespace Zenstruck\Foundry\Tests\Unit;
 
 use Faker;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Zenstruck\Foundry\Configuration;
 use Zenstruck\Foundry\Persistence\Proxy;
@@ -26,6 +27,7 @@ use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Address\ProxyAddressFactory
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Category\CategoryFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Contact\ContactFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Contact\ProxyContactFactory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\EmptyConstructorFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\GenericProxyEntityFactory;
 use Zenstruck\Foundry\Tests\Fixture\Object1;
 
@@ -48,6 +50,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_register_custom_faker(): void
     {
         $defaultFaker = faker();
@@ -61,6 +64,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_use_arrays_for_attribute_values(): void
     {
         $object = new class {
@@ -75,6 +79,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_use_user_defined_proxy_persistent_factory_in_unit_test(): void
     {
         $object = GenericProxyEntityFactory::createOne();
@@ -86,6 +91,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_use_user_anonymous_proxy_persistent_factory_in_unit_test(): void
     {
         $object = proxy_factory(GenericEntity::class, ['prop1' => 'prop1'])->create();
@@ -97,6 +103,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_register_default_instantiator(): void
     {
         UnitTestConfig::configure(instantiator: static fn(): Object1 => new Object1(
@@ -113,6 +120,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function proxy_attributes_can_be_used_in_unit_test(): void
     {
         $object = ProxyContactFactory::createOne([
@@ -126,6 +134,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function instantiating_with_factory_attribute_instantiates_the_factory(): void
     {
         $object = ContactFactory::createOne([
@@ -138,6 +147,7 @@ final class FactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function instantiating_with_proxy_attribute_normalizes_to_underlying_object(): void
     {
         $object = ProxyContactFactory::createOne([
@@ -145,5 +155,16 @@ final class FactoryTest extends TestCase
         ]);
 
         $this->assertInstanceOf(Category::class, $object->getCategory());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function can_use_factory_with_empty_constructor(): void
+    {
+        $genericEntity = EmptyConstructorFactory::createOne();
+
+        self::assertInstanceOf(GenericEntity::class, $genericEntity);
     }
 }

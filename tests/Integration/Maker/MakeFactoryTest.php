@@ -11,6 +11,9 @@
 
 namespace Zenstruck\Foundry\Tests\Integration\Maker;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\MakerBundle\Exception\RuntimeCommandException;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -23,11 +26,13 @@ use Zenstruck\Foundry\Tests\Fixture\Entity\GenericEntity;
 use Zenstruck\Foundry\Tests\Fixture\Entity\WithEmbeddableEntity;
 use Zenstruck\Foundry\Tests\Fixture\Object1;
 use Zenstruck\Foundry\Tests\Fixture\ObjectWithEnum;
+use Zenstruck\Foundry\Tests\Fixture\ObjectWithNonWriteable;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
  * @group maker
  */
+#[Group('maker')]
 final class MakeFactoryTest extends MakerTestCase
 {
     private const PHPSTAN_PATH = __DIR__.'/../../..'.FactoryGenerator::PHPSTAN_PATH;
@@ -58,6 +63,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -78,6 +84,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_interactively(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -105,6 +112,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_in_test_dir(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -122,6 +130,8 @@ final class MakeFactoryTest extends MakerTestCase
      * @test
      * @dataProvider scaToolProvider
      */
+    #[Test]
+    #[DataProvider('scaToolProvider')]
     public function can_create_factory_with_static_analysis_annotations(string $scaTool): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -149,6 +159,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_for_entity_with_repository(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -165,6 +176,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function invalid_entity_throws_exception(): void
     {
         $tester = $this->makeFactoryCommandTester();
@@ -184,6 +196,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_for_not_persisted_class(): void
     {
         $tester = $this->makeFactoryCommandTester();
@@ -196,6 +209,20 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
+    public function can_create_factory_without_hints(): void
+    {
+        $tester = $this->makeFactoryCommandTester(['environment' => 'maker_no_hints']);
+
+        $tester->execute(['class' => Object1::class, '--no-persistence' => true, '--all-fields' => true]);
+
+        $this->assertFileFromMakerSameAsExpectedFile(self::tempFile('src/Factory/Object1Factory.php'));
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
     public function can_create_factory_for_not_persisted_class_interactively(): void
     {
         $tester = $this->makeFactoryCommandTester();
@@ -214,6 +241,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_customize_namespace(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -233,6 +261,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_customize_namespace_with_test_flag(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -252,6 +281,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_customize_namespace_with_root_namespace_prefix(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -271,6 +301,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_customize_namespace_with_test_flag_with_root_namespace_prefix(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -291,6 +322,8 @@ final class MakeFactoryTest extends MakerTestCase
      * @test
      * @dataProvider documentProvider
      */
+    #[Test]
+    #[DataProvider('documentProvider')]
     public function can_create_factory_for_odm(string $class, string $file): void
     {
         if (!\getenv('MONGO_URL')) {
@@ -317,6 +350,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_all_factories_for_doctrine_objects(): void
     {
         if (!\getenv('MONGO_URL') && !\getenv('DATABASE_URL')) {
@@ -349,6 +383,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_with_auto_activated_not_persisted_option(): void
     {
         if (\getenv('MONGO_URL') || \getenv('DATABASE_URL')) {
@@ -368,6 +403,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_with_all_fields(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -385,6 +421,8 @@ final class MakeFactoryTest extends MakerTestCase
      * @test
      * @dataProvider objectsWithEmbeddableProvider
      */
+    #[Test]
+    #[DataProvider('objectsWithEmbeddableProvider')]
     public function can_create_factory_with_embeddable(string $objectClass, string $objectFactoryName): void
     {
         $tester = $this->makeFactoryCommandTester();
@@ -412,6 +450,7 @@ final class MakeFactoryTest extends MakerTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_factory_with_default_enum(): void
     {
         $tester = $this->makeFactoryCommandTester();
@@ -421,14 +460,40 @@ final class MakeFactoryTest extends MakerTestCase
         $this->assertFileFromMakerSameAsExpectedFile(self::tempFile('src/Factory/ObjectWithEnumFactory.php'));
     }
 
+    /**
+     * @test
+     */
+    #[Test]
+    public function does_not_initialize_non_settable(): void
+    {
+        $tester = $this->makeFactoryCommandTester();
+
+        $tester->execute(['class' => ObjectWithNonWriteable::class, '--no-persistence' => true]);
+
+        $this->assertFileFromMakerSameAsExpectedFile(self::tempFile('src/Factory/ObjectWithNonWriteableFactory.php'));
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function does_force_initialization_of_non_settable_with_always_force(): void
+    {
+        $tester = $this->makeFactoryCommandTester(['environment' => 'always_force']);
+
+        $tester->execute(['class' => ObjectWithNonWriteable::class, '--no-persistence' => true]);
+
+        $this->assertFileFromMakerSameAsExpectedFile(self::tempFile('src/Factory/ObjectWithNonWriteableFactory.php'));
+    }
+
     private function emulateSCAToolEnabled(string $scaToolFilePath): void
     {
         \mkdir(\dirname($scaToolFilePath), 0777, true);
         \touch($scaToolFilePath);
     }
 
-    private function makeFactoryCommandTester(): CommandTester
+    private function makeFactoryCommandTester(array $options = []): CommandTester
     {
-        return new CommandTester((new Application(self::bootKernel()))->find('make:factory'));
+        return new CommandTester((new Application(self::bootKernel($options)))->find('make:factory'));
     }
 }

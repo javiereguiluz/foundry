@@ -28,21 +28,12 @@ abstract class Factory
     /** @phpstan-var Attributes[] */
     private array $attributes;
 
-    /**
-     * Memoization of normalized parameters
-     *
-     * @internal
-     * @var Parameters|null
-     */
-    protected array|null $normalizedParameters = null;
-
     // keep an empty constructor for BC
     public function __construct()
     {
     }
 
     /**
-     * @return static
      * @phpstan-return static
      * @phpstan-param Attributes $attributes
      */
@@ -141,6 +132,18 @@ abstract class Factory
     }
 
     /**
+     * @param list<mixed> $values
+     *
+     * @return FactoryCollection<T, static>
+     */
+    final public function distribute(string $field, array $values): FactoryCollection
+    {
+        return $this->sequence(
+            \array_map(fn($value) => [$field => $value], $values)
+        );
+    }
+
+    /**
      * @phpstan-param Attributes $attributes
      *
      * @psalm-return static<T>
@@ -161,8 +164,6 @@ abstract class Factory
 
     /**
      * Override to adjust default attributes & config.
-     *
-     * @return static
      */
     protected function initialize(): static
     {
@@ -178,20 +179,29 @@ abstract class Factory
      */
     final protected function normalizeAttributes(array|callable $attributes = []): array
     {
-        $attributes = [$this->defaults(), ...$this->attributes, $attributes];
+        $mergedAttributes = [$this->defaults()];
+
+        // "reused" attributes will override the ones from "defaults()"
+        // but should be overridden by the other states of the factory
+        if ($this instanceof ObjectFactory) {
+            $mergedAttributes[] = $this->reusedAttributes();
+        }
+
+        $mergedAttributes = [...$mergedAttributes, ...$this->attributes, $attributes];
+
         $index = 1;
 
         // find if an index was set by factory collection
-        foreach ($attributes as $i => $attr) {
+        foreach ($mergedAttributes as $i => $attr) {
             if (\is_array($attr) && isset($attr['__index'])) {
                 $index = $attr['__index'];
-                unset($attributes[$i]);
+                unset($mergedAttributes[$i]);
                 break;
             }
         }
 
         return \array_merge(
-            ...\array_map(static fn(array|callable $attr) => \is_callable($attr) ? $attr($index) : $attr, $attributes)
+            ...\array_map(static fn(array|callable $attr) => \is_callable($attr) ? $attr($index) : $attr, $mergedAttributes)
         );
     }
 
@@ -212,9 +222,9 @@ abstract class Factory
      */
     protected function normalizeParameters(array $parameters): array
     {
-        return $this->normalizedParameters = array_combine(
-            array_keys($parameters),
-            \array_map($this->normalizeParameter(...), array_keys($parameters), $parameters)
+        return \array_combine(
+            \array_keys($parameters),
+            \array_map($this->normalizeParameter(...), \array_keys($parameters), $parameters)
         );
     }
 
@@ -240,9 +250,9 @@ abstract class Factory
         }
 
         if (\is_array($value)) {
-            return array_combine(
-                array_keys($value),
-                \array_map($this->normalizeParameter(...), array_fill(0, count($value), $field), $value)
+            return \array_combine(
+                \array_keys($value),
+                \array_map($this->normalizeParameter(...), \array_fill(0, \count($value), $field), $value)
             );
         }
 

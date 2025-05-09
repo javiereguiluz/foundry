@@ -29,17 +29,14 @@ use Zenstruck\Foundry\Tests\Integration\RequiresORM;
 
 /**
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
- * @requires PHPUnit ^11.0
+ * @requires PHPUnit >=11.0
  */
-#[RequiresPhpunit('^11.0')]
+#[RequiresPhpunit('>=11.0')]
 #[RequiresPhpunitExtension(FoundryExtension::class)]
 final class WithStoryOnMethodTest extends KernelTestCase
 {
     use Factories, RequiresORM, ResetDatabase;
 
-    /**
-     * @test
-     */
     #[Test]
     #[WithStory(EntityStory::class)]
     public function can_use_story_in_attribute(): void
@@ -50,9 +47,6 @@ final class WithStoryOnMethodTest extends KernelTestCase
         $this->assertSame('foo', EntityStory::get('foo')->getProp1());
     }
 
-    /**
-     * @test
-     */
     #[Test]
     #[WithStory(EntityStory::class)]
     #[WithStory(EntityPoolStory::class)]
@@ -61,9 +55,6 @@ final class WithStoryOnMethodTest extends KernelTestCase
         GenericEntityFactory::assert()->count(5);
     }
 
-    /**
-     * @test
-     */
     #[Test]
     #[WithStory(ServiceStory::class)]
     public function can_use_service_story(): void

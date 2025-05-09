@@ -11,15 +11,19 @@
 
 namespace Zenstruck\Foundry\Tests\Unit;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Zenstruck\Foundry\Factory;
 use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Object1Factory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Object2Factory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\SimpleObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Object1;
 
 use function Zenstruck\Foundry\factory;
+use function Zenstruck\Foundry\force;
 use function Zenstruck\Foundry\get;
 use function Zenstruck\Foundry\object;
 use function Zenstruck\Foundry\set;
@@ -36,6 +40,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function defaults(): void
     {
         $object = Object1Factory::createOne();
@@ -48,6 +53,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function named_constructor_defaults(): void
     {
         $object = Object1Factory::new()->instantiateWith(Instantiator::namedConstructor('factory'))->create();
@@ -60,6 +66,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function default_instantiator_and_hydrator(): void
     {
         $object = Object1Factory::createOne([
@@ -76,6 +83,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function without_constructor_instantiator(): void
     {
         $object = Object1Factory::new()->instantiateWith(Instantiator::withoutConstructor())->create([
@@ -92,6 +100,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_closure_factory_constructor(): void
     {
         $object = Object1Factory::new()
@@ -111,6 +120,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_method_factory_constructor(): void
     {
         $object = Object1Factory::new()
@@ -130,6 +140,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_named_constructor_instantiator(): void
     {
         $object = Object1Factory::new()->instantiateWith(Instantiator::namedConstructor('factory'))->create([
@@ -146,6 +157,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_extra_and_force_mode_without_constructor(): void
     {
         $object = Object1Factory::new()
@@ -166,6 +178,51 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
+    public function can_use_force_helper_to_force_a_single_property(): void
+    {
+        $object = Object1Factory::new()
+            ->instantiateWith(Instantiator::withoutConstructor())
+            ->create([
+                'prop1' => force('override1'),
+            ])
+        ;
+
+        $this->assertSame('override1', $object->getProp1());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function force_helper_used_in_constructor_does_not_throw(): void
+    {
+        $object = Object1Factory::new()
+            ->create([
+                'prop1' => force('override1'),
+            ])
+        ;
+
+        $this->assertSame('override1-constructor', $object->getProp1());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function force_helper_used_in_named_constructor_does_not_throw(): void
+    {
+        $object = Object1Factory::new()->instantiateWith(Instantiator::namedConstructor('factory'))->create([
+            'prop1' => force('override1'),
+        ]);
+
+        $this->assertSame('override1-named-constructor', $object->getProp1());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
     public function with_configured_hydrator(): void
     {
         $object = Object1Factory::new()
@@ -186,6 +243,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_hydration_disabled(): void
     {
         $object = Object1Factory::new()
@@ -206,6 +264,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function with_custom_instantiator_callable(): void
     {
         $object = Object1Factory::new()
@@ -226,6 +285,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function before_instantiate_hook(): void
     {
         $object = Object1Factory::new()
@@ -250,6 +310,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function after_instantiate_hook(): void
     {
         $object = Object1Factory::new()
@@ -269,6 +330,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function create_anonymous_factory(): void
     {
         $object = factory(Object1::class, ['prop1' => 'value1'])->create(['prop2' => 'value2']);
@@ -293,6 +355,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function object_factories_are_converted(): void
     {
         $object = Object2Factory::createOne();
@@ -303,6 +366,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function can_create_many(): void
     {
         $objects = Object1Factory::createMany(3, fn(int $i) => ['prop1' => "value{$i}"]);
@@ -323,6 +387,7 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
     public function set_and_get_functions(): void
     {
         $object = new Object1('value');
@@ -341,6 +406,8 @@ final class ObjectFactoryTest extends TestCase
      *
      * @test
      */
+    #[Test]
+    #[DataProvider('sequenceDataProvider')]
     public function can_create_sequence(iterable|callable $sequence): void
     {
         self::assertEquals(
@@ -371,27 +438,28 @@ final class ObjectFactoryTest extends TestCase
         ];
 
         yield 'sequence as callable which returns array' => [
-            static fn() => array_map(
+            static fn() => \array_map(
                 static fn(int $i) => ['prop1' => "foo{$i}", 'prop2' => "bar{$i}"],
-                range(1, 2)
-            )
+                \range(1, 2)
+            ),
         ];
 
         yield 'sequence as iterable which returns generator' => [
-            static function () {
-                foreach (range(1, 2) as $i) {
+            static function() {
+                foreach (\range(1, 2) as $i) {
                     yield [
                         'prop1' => "foo{$i}",
                         'prop2' => "bar{$i}",
                     ];
                 }
-            }
+            },
         ];
     }
 
     /**
      * @test
      */
+    #[Test]
     public function can_use_sequence_with_associative_array(): void
     {
         self::assertEquals(
@@ -415,6 +483,44 @@ final class ObjectFactoryTest extends TestCase
     /**
      * @test
      */
+    #[Test]
+    public function distribute(): void
+    {
+        $objects = SimpleObjectFactory::new()->distribute('prop1', ['foo', 'bar'])->create();
+
+        self::assertCount(2, $objects);
+        self::assertSame('foo', $objects[0]->prop1);
+        self::assertSame('bar', $objects[1]->prop1);
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function distribute_on_factory_collection(): void
+    {
+        $objects = SimpleObjectFactory::new()->many(2)->distribute('prop1', ['foo', 'bar'])->create();
+
+        self::assertCount(2, $objects);
+        self::assertSame('foo', $objects[0]->prop1);
+        self::assertSame('bar', $objects[1]->prop1);
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function providing_invalid_values_number_to_distribute_throws(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        SimpleObjectFactory::new()->many(2)->distribute('prop1', ['foo']);
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
     public function as_data_provider(): void
     {
         $this->markTestIncomplete();

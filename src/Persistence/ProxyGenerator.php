@@ -66,10 +66,10 @@ final class ProxyGenerator
      *
      * @return T
      */
-    public static function unwrap(mixed $what): mixed
+    public static function unwrap(mixed $what, bool $withAutoRefresh = true): mixed
     {
         if (\is_array($what)) {
-            return \array_map(self::unwrap(...), $what); // @phpstan-ignore return.type
+            return \array_map(static fn(mixed $w) => self::unwrap($w, $withAutoRefresh), $what); // @phpstan-ignore return.type
         }
 
         if (\is_string($what) && \is_a($what, Proxy::class, true)) {
@@ -77,7 +77,7 @@ final class ProxyGenerator
         }
 
         if ($what instanceof Proxy) {
-            return $what->_real(); // @phpstan-ignore return.type
+            return $what->_real($withAutoRefresh); // @phpstan-ignore return.type
         }
 
         return $what;
@@ -114,10 +114,28 @@ final class ProxyGenerator
             $proxyCode,
             [
                 'implements \Symfony\Component\VarExporter\LazyObjectInterface' => \sprintf('implements \%s, \Symfony\Component\VarExporter\LazyObjectInterface', Proxy::class),
+                'use \Symfony\Component\VarExporter\Internal\LazyDecoratorTrait' => \sprintf("use \\%s;\n    use \\%s", IsProxy::class, LazyProxyTrait::class),
                 'use \Symfony\Component\VarExporter\LazyProxyTrait' => \sprintf("use \\%s;\n    use \\%s", IsProxy::class, LazyProxyTrait::class),
-                'if (isset($this->lazyObjectState)) {' => "\$this->_autoRefresh();\n\n        if (isset(\$this->lazyObjectReal)) {",
                 '\func_get_args()' => '$this->unproxyArgs(\func_get_args())',
             ],
+        );
+
+        /**
+         * Add `$this->_autoRefresh();` after every method declaration.
+         *
+         * (\s*                                 # 1. Optional indentation
+         * (?:public|protected|private)?\s*     # 2. Optional visibility
+         * function\s+                          # 3. The "function" keyword followed by space
+         * (?!__)                               # 4. Negative lookahead to exclude magic methods (like __serialize)
+         * \w+                                  # 5. Method name
+         * \s*\([^\)]*\)\s*                     # 6. Parameters inside parentheses (not captured)
+         * ):?\s*\??[\w\\\\]*                   # 7. Optional return type, can be nullable (starts with `?`), supports namespaced types (`\Foo\Bar`)
+         * \s*\{\s*$                            # 8. Opening brace `{` at the end of the line, with optional spaces before
+         */
+        $proxyCode = \preg_replace_callback(
+            '/^(\s*(?:public|protected|private)?\s*function\s+(?!__)\w+\s*\([^\)]*\)\s*):?\s*\??[\w\\\\]*\s*\{\s*$/m',
+            fn($matches) => \rtrim($matches[0])."\n    \$this->_autoRefresh();",
+            $proxyCode
         );
 
         eval($proxyCode); // @phpstan-ignore-line

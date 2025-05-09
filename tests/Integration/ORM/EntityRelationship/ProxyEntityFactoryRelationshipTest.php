@@ -17,10 +17,10 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\Proxy as DoctrineProxy;
 use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\Attributes\RequiresPhpunit;
 use PHPUnit\Framework\Attributes\Test;
 use Zenstruck\Assert;
-use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
 use Zenstruck\Foundry\Persistence\Proxy;
 use Zenstruck\Foundry\Tests\Fixture\DoctrineCascadeRelationship\UsingRelationships;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Contact;
@@ -32,9 +32,9 @@ use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\Tag\ProxyTagFactory;
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
- * @requires PHPUnit ^11.4
  */
-#[RequiresPhpunit('^11.4')]
+#[RequiresPhpunit('>=11.4')]
+#[IgnoreDeprecations]
 final class ProxyEntityFactoryRelationshipTest extends EntityFactoryRelationshipTestCase
 {
     /** @test */
@@ -127,13 +127,37 @@ final class ProxyEntityFactoryRelationshipTest extends EntityFactoryRelationship
 
     /** @test */
     #[Test]
-    public function cannot_use_assert_persisted_when_entity_has_changes(): void
+    public function can_use_assert_persisted_when_entity_has_changes(): void
     {
         $contact = static::contactFactory()->create();
         $contact->setName('foo');
 
-        $this->expectException(RefreshObjectFailed::class);
         $contact->_assertPersisted();
+    }
+
+    /** @test */
+    #[Test]
+    public function real_method_always_return_same_instance(): void
+    {
+        $category = static::categoryFactory()->create();
+
+        $this->assertSame($category->_real(), $category->_real());
+
+        $category->_real()->addContact($contact1 = static::contactFactory()->create()->_real());
+        $category->_real()->addContact($contact2 = static::contactFactory()->create()->_real());
+
+        $category->_real()->addSecondaryContact($contact3 = static::contactFactory()->create()->_real());
+        $category->_real()->addSecondaryContact($contact4 = static::contactFactory()->create()->_real());
+
+        $category->_save();
+
+        $this->assertSame($category->_real(), $category->_real());
+
+        $this->assertSame([$contact1, $contact2], $category->getContacts()->getValues());
+        $this->assertSame([$contact1, $contact2], $category->_real()->getContacts()->getValues());
+
+        $this->assertSame([$contact3, $contact4], $category->getSecondaryContacts()->getValues());
+        $this->assertSame([$contact3, $contact4], $category->_real()->getSecondaryContacts()->getValues());
     }
 
     protected static function contactFactory(): ProxyContactFactory

@@ -1,5 +1,128 @@
 # CHANGELOG
 
+## [v2.4.3](https://github.com/zenstruck/foundry/releases/tag/v2.4.3)
+
+May 5th, 2025 - [v2.4.2...v2.4.3](https://github.com/zenstruck/foundry/compare/v2.4.2...v2.4.3)
+
+* 2b31429 chore: test with SF7.3 (#891) by @nikophil
+* 50350cb minor: allow 10% gap in benchmark workflow (#880) by @nikophil
+
+## [v2.4.2](https://github.com/zenstruck/foundry/releases/tag/v2.4.2)
+
+April 17th, 2025 - [v2.4.1...v2.4.2](https://github.com/zenstruck/foundry/compare/v2.4.1...v2.4.2)
+
+* 25e9125 fix: Prevent random value collisions when kernel is rebooted (#879) by @HypeMC
+
+## [v2.4.1](https://github.com/zenstruck/foundry/releases/tag/v2.4.1)
+
+April 15th, 2025 - [v2.4.0...v2.4.1](https://github.com/zenstruck/foundry/compare/v2.4.0...v2.4.1)
+
+* 6b4fea8 fix(faker): missing parameter when using custom `faker` service (#877) by @silasjoisten
+
+## [v2.4.0](https://github.com/zenstruck/foundry/releases/tag/v2.4.0)
+
+April 14th, 2025 - [v2.3.2...v2.4.0](https://github.com/zenstruck/foundry/compare/v2.3.2...v2.4.0)
+
+* 659a7bc minor: use `mt_rand` instead of `random_int` (#869) by @kbond
+* 12b4419 perf: revert validation / `#[AsFoundryHook]` / global event system (#871) by @nikophil
+* 348b28d docs: fix default_namespace (#872) by @ebedy
+* 92d9f28 chore(phpbench): actually run phpbench with a baseline (#868) by @nikophil
+* 1a829e5 feat: optimize performance of repository::random() (#867) by @mdeboer
+* 5ccbe51 feat: add support for benchmarks using phpbench (#866) by @mdeboer, @nikophil
+* 2df354c fix: performance problem with reuse (#865) by @nikophil
+* 0747e04 docs: document Faker reproducibility (#860) by @nikophil
+* f8cc3a0 fix: handle empty constructors (#859) by @nikophil
+* cb63756 chore: merge 2.3.x (#858) by @nikophil, @mdeboer, @Chris53897
+* b1e7aec feat(maker): allow no hints (#857) by @nikophil
+* 59d617c fixes typo (#850) by @mvhirsch
+* 5cc8575 feat: introduce "reuse()" method (#804) by @nikophil, @kbond
+* 21f32b8 docs: fix wrong class name (#846) by @nikophil
+* 48d9249 docs: minor fixes (#837) by @nikophil
+* bdda45c doc: fixes linking to object-proxy (#825) by @mvhirsch
+* 719710a test: ensure Proxy::_real() always return same object (#809) by @nikophil
+* d15de0e feat: introduce `distribute()` method (#826) by @nikophil
+* 5647b5c fix: prevent infinite loop when ->create() is called in after persist callback (#832) by @nikophil
+* c0361e6 feat: validate objects (#801) by @nikophil
+* 6e1d726 fix: fix failing faker test due to csfix (#829) by @nikophil
+* 7b33216 minor: deprecate auto-persist (#818) by @nikophil
+* eb6e983 feat(faker): Improve reproducibility with faker (#807) by @nikophil
+* ae96d19 chore: use PHPUnit 12 (#810) by @nikophil
+* 413bb10 chore: upgrade phpstan (#828) by @nikophil
+* fbf0981 fix: actually disable persistence cascade (#817) by @nikophil
+* 2426f3e fix: trigger after persist callbacks for entities scheduled for insert (#822) by @nikophil
+* dea6246 fix(doc): update yml config file for reset keys (#819) by @asalisaf
+* da1e9db docs: Make sure we add links on separate lines(#823) by @Nyholm
+* ad8d72c fix: can index one to many relationships based on "indexBy" (#815) by @nikophil
+* 1c3f73a feat: introduce  attribute (#802) by @nikophil
+* f76cba2 fix: fix deprecation message for Factories trait (#806) by @nikophil
+* 207562f fix: remove APP_ENV from .env (#803) by @nikophil
+* 34101a7 feat: dispatch events (#790) by @nikophil
+* 9032c38 feat: skip readonly properties on entities when generating factories (#798) by @KDederichs, @nikophil
+
+## [v2.3.10](https://github.com/zenstruck/foundry/releases/tag/v2.3.10)
+
+March 31st, 2025 - [v2.3.9...v2.3.10](https://github.com/zenstruck/foundry/compare/v2.3.9...v2.3.10)
+
+* e5c6973 fix: handle "inverse one to one" without "placeholder" solution (#855) by @nikophil
+
+## [v2.3.6](https://github.com/zenstruck/foundry/releases/tag/v2.3.6)
+
+February 25th, 2025 - [v2.3.5...v2.3.6](https://github.com/zenstruck/foundry/compare/v2.3.5...v2.3.6)
+
+* 300645b fix: can call ->create() in after persist callback (#833) by @nikophil
+
+## [v2.3.5](https://github.com/zenstruck/foundry/releases/tag/v2.3.5)
+
+February 24th, 2025 - [v2.3.4...v2.3.5](https://github.com/zenstruck/foundry/compare/v2.3.4...v2.3.5)
+
+* fbf0981 fix: actually disable persistence cascade (#817) by @nikophil
+* 2426f3e fix: trigger after persist callbacks for entities scheduled for insert (#822) by @nikophil
+
+## [v2.3.4](https://github.com/zenstruck/foundry/releases/tag/v2.3.4)
+
+February 14th, 2025 - [v2.3.3...v2.3.4](https://github.com/zenstruck/foundry/compare/v2.3.3...v2.3.4)
+
+* ad8d72c fix: can index one to many relationships based on "indexBy" (#815) by @nikophil
+
+## [v2.3.2](https://github.com/zenstruck/foundry/releases/tag/v2.3.2)
+
+February 1st, 2025 - [v2.3.1...v2.3.2](https://github.com/zenstruck/foundry/compare/v2.3.1...v2.3.2)
+
+* 46464cc chore(ci): misc improvments in CI permutations (#797) by @nikophil
+* 86c5aab test: assert updates are implicitly persisted (#781) by @nikophil
+* 54c7424 feat: deprecate when Factories trait is not used in a KernelTestCase (#766) by @nikophil
+* 9937b11 chore: add issue template (#795) by @nikophil
+* 884113f fix: simplify reset database extension (#779) by @nikophil
+* bd50f41 fix: add unpersisted object to relation (#780) by @nikophil
+* 17388bc tests: transform "migrate" testsuite into "reset database" testsuite (#763) by @nikophil
+* e45913e fix: propagate "schedule for insert" to factory collection (#775) by @nikophil
+* d9262cc fix: fix .gitattributes and `#[RequiresPhpUnit]` versions (#792) by @nikophil
+* 57c42bc tests: fix a test after a bug was resolved in doctrine migrations (#791) by @nikophil
+* 200cfdd [Doc] Fix misc issues (#789) by @javiereguiluz
+* 553807b minor: add platform config to mysql docker container (#788) by @kbond
+* 316d3c7 doc: fix typo (#782) by @norival
+* 0d66c02 minor: use refresh for detached entities (#778) by @nikophil
+* 29b48a1 test: add orphan removal premutation (#777) by @nikophil
+* c00b3f1 fix: isPersisted must work when id is known in advance (#774) by @nikophil
+* f303f3f fix: remove _refresh call from create object process (#773) by @nikophil
+* 65cedbf fix: use a "placeholder" for inversed one-to-one (#755) by @nikophil
+* 5f99506 minor: introduce PerssitenceManager::isPersisted() (#754) by @nikophil
+* 9948d6a fix(ci): change PHP version used by PHP CS-Fixer  (#768) by @nikophil
+* cf3cc8b docs: Minor syntax fix (#767) by @javiereguiluz
+* e8f9a92 docs: clarify default attributes and fixed some syntax issues (#765) by @nikophil, @javiereguiluz
+* 1db5ced tests: validate PSR-4 in CI (#762) by @nikophil
+* cafc693 [Docs fix] Just spelling in docs (#761) by @GrinWay
+* d192c4a [Docs fix] Proxy::_save() instead of Proxy::save() (#760) by @GrinWay
+* ff7210a [Docs fix] Factory::_real() instead Factory::object() (#759) by @GrinWay
+* d1240b1 fix: RequiresPhpunit should use semver constraint by @nikophil
+* fd2e38c chore: upgrade to phpstan 2 (#748) by @nikophil
+* 23b4ec4 tests: automatically create cascade persist permutations (#666) by @nikophil
+* f4ba5d8 tests: add CI permutation with windows (#747) by @nikophil
+* c17ef91 fix: define FactoryCollection type more precisely (#744) by @nikophil
+* 98f018c feat: schedule objects for insert right after instantiation (#742) by @nikophil
+* 2dcad10 feat: provide current factory to hook (#738) by @nikophil
+* ea89504 fix: pass to `afterPersist` hook the attributes from `beforeInstantiate` (#745) by @nikophil, @kbond
+
 ## [v2.3.1](https://github.com/zenstruck/foundry/releases/tag/v2.3.1)
 
 December 12th, 2024 - [v2.3.0...v2.3.1](https://github.com/zenstruck/foundry/compare/v2.3.0...v2.3.1)

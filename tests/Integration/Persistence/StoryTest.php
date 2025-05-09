@@ -11,14 +11,14 @@
 
 namespace Zenstruck\Foundry\Tests\Integration\Persistence;
 
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Story;
 use Zenstruck\Foundry\Test\Factories;
 use Zenstruck\Foundry\Test\ResetDatabase;
-use Zenstruck\Foundry\Tests\Fixture\Document\GlobalDocument;
 use Zenstruck\Foundry\Tests\Fixture\Entity\GenericEntity;
-use Zenstruck\Foundry\Tests\Fixture\Entity\GlobalEntity;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Document\GenericDocumentFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\GenericEntityFactory;
 use Zenstruck\Foundry\Tests\Fixture\Model\GenericModel;
@@ -27,11 +27,8 @@ use Zenstruck\Foundry\Tests\Fixture\Stories\DocumentPoolStory;
 use Zenstruck\Foundry\Tests\Fixture\Stories\DocumentStory;
 use Zenstruck\Foundry\Tests\Fixture\Stories\EntityPoolStory;
 use Zenstruck\Foundry\Tests\Fixture\Stories\EntityStory;
-use Zenstruck\Foundry\Tests\Fixture\Stories\GlobalStory;
 use Zenstruck\Foundry\Tests\Fixture\Stories\ObjectStory;
 use Zenstruck\Foundry\Tests\Fixture\Stories\PersistenceDisabledStory;
-
-use function Zenstruck\Foundry\Persistence\repository;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -61,6 +58,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider storiesProvider
      */
+    #[Test]
+    #[DataProvider('storiesProvider')]
     public function stories_only_loaded_once(string $story, string $factory): void
     {
         $factory::repository()->assert()->empty();
@@ -73,49 +72,13 @@ final class StoryTest extends KernelTestCase
     }
 
     /**
-     * @test
-     */
-    public function global_stories_are_loaded(): void
-    {
-        if (!\getenv('DATABASE_URL') && !\getenv('MONGO_URL')) {
-            $this->markTestSkipped('No persistence enabled.');
-        }
-
-        if (\getenv('DATABASE_URL')) {
-            repository(GlobalEntity::class)->assert()->count(2);
-        }
-
-        if (\getenv('MONGO_URL')) {
-            repository(GlobalDocument::class)->assert()->count(2);
-        }
-    }
-
-    /**
-     * @test
-     */
-    public function global_stories_cannot_be_loaded_again(): void
-    {
-        if (!\getenv('DATABASE_URL') && !\getenv('MONGO_URL')) {
-            $this->markTestSkipped('No persistence enabled.');
-        }
-
-        GlobalStory::load();
-
-        if (\getenv('DATABASE_URL')) {
-            repository(GlobalEntity::class)->assert()->count(2);
-        }
-
-        if (\getenv('MONGO_URL')) {
-            repository(GlobalDocument::class)->assert()->count(2);
-        }
-    }
-
-    /**
      * @param class-string<EntityStory|DocumentStory> $story
      *
      * @test
      * @dataProvider storiesProvider
      */
+    #[Test]
+    #[DataProvider('storiesProvider')]
     public function can_access_story_state(string $story): void
     {
         $this->assertSame('foo', $story::get('foo')->getProp1());
@@ -134,6 +97,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider storiesProvider
      */
+    #[Test]
+    #[DataProvider('storiesProvider')]
     public function can_access_story_state_with_magic_call(string $story): void
     {
         $this->assertSame('foo', $story::foo()->getProp1());
@@ -152,6 +117,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider storiesProvider
      */
+    #[Test]
+    #[DataProvider('storiesProvider')]
     public function can_access_story_state_with_magic_call_on_instance(string $story): void
     {
         $this->assertSame('foo', $story::load()->foo()->getProp1());
@@ -170,6 +137,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider storiesProvider
      */
+    #[Test]
+    #[DataProvider('storiesProvider')]
     public function cannot_access_invalid_object(string $story): void
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -197,6 +166,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider poolStoriesProvider
      */
+    #[Test]
+    #[DataProvider('poolStoriesProvider')]
     public function can_get_random_object_set_from_pool(string $story): void
     {
         $objects = $story::getRandomSet($story, 2);
@@ -210,6 +181,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider poolStoriesProvider
      */
+    #[Test]
+    #[DataProvider('poolStoriesProvider')]
     public function can_get_random_object_from_pool(string $story): void
     {
         $ids = [];
@@ -227,6 +200,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider poolStoriesProvider
      */
+    #[Test]
+    #[DataProvider('poolStoriesProvider')]
     public function can_get_random_object_range_from_pool(string $story): void
     {
         $counts = [];
@@ -249,6 +224,8 @@ final class StoryTest extends KernelTestCase
      * @test
      * @dataProvider poolStoriesProvider
      */
+    #[Test]
+    #[DataProvider('poolStoriesProvider')]
     public function story_can_access_its_own_pool(string $story): void
     {
         $item = $story::get('random-from-own-pool');
@@ -261,6 +238,7 @@ final class StoryTest extends KernelTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_use_story_with_simple_object(): void
     {
         ObjectStory::load();
@@ -270,6 +248,7 @@ final class StoryTest extends KernelTestCase
     /**
      * @test
      */
+    #[Test]
     public function can_use_story_with_persistence_disabled(): void
     {
         PersistenceDisabledStory::load();

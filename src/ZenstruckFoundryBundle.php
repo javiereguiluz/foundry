@@ -19,8 +19,10 @@ use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use Zenstruck\Foundry\Mongo\MongoResetter;
 use Zenstruck\Foundry\Object\Instantiator;
+use Zenstruck\Foundry\ORM\ResetDatabase\MigrateDatabaseResetter;
 use Zenstruck\Foundry\ORM\ResetDatabase\OrmResetter;
 use Zenstruck\Foundry\ORM\ResetDatabase\ResetDatabaseMode;
+use Zenstruck\Foundry\ORM\ResetDatabase\SchemaDatabaseResetter;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -53,6 +55,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                             ->defaultNull()
                         ->end()
                         ->scalarNode('seed')
+                            ->setDeprecated('zenstruck/foundry', '2.4', 'The "faker.seed" configuration is deprecated and will be removed in 3.0. Use environment variable "FOUNDRY_FAKER_SEED" instead.')
                             ->info('Random number generator seed to produce the same fake values every run.')
                             ->example(1234)
                             ->defaultNull()
@@ -97,6 +100,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                         ->booleanNode('auto_persist')
                             ->info('Automatically persist entities when created.')
                             ->defaultTrue()
+                            ->setDeprecated('zenstruck/foundry', '2.4', 'Since 2.4 auto_persist defaults to true and this configuration has no effect.')
                         ->end()
                         ->arrayNode('reset')
                             ->addDefaultsIfNotSet()
@@ -152,6 +156,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                         ->booleanNode('auto_persist')
                             ->info('Automatically persist documents when created.')
                             ->defaultTrue()
+                            ->setDeprecated('zenstruck/foundry', '2.4', 'Since 2.4 auto_persist defaults to true and this configuration has no effect.')
                         ->end()
                         ->arrayNode('reset')
                             ->addDefaultsIfNotSet()
@@ -174,6 +179,10 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                             ->defaultValue('Factory')
                             ->cannotBeEmpty()
                         ->end()
+                        ->booleanNode('add_hints')
+                            ->info('Add "beginner" hints in the created factory.')
+                            ->defaultTrue()
+                        ->end()
                     ->end()
                 ->end()
                 ->arrayNode('make_story')
@@ -192,13 +201,9 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
 
     public function loadExtension(array $config, ContainerConfigurator $configurator, ContainerBuilder $container): void // @phpstan-ignore missingType.iterableValue
     {
-        $container->registerForAutoconfiguration(Factory::class)
-            ->addTag('foundry.factory')
-        ;
+        $container->registerForAutoconfiguration(Factory::class)->addTag('foundry.factory');
 
-        $container->registerForAutoconfiguration(Story::class)
-            ->addTag('foundry.story')
-        ;
+        $container->registerForAutoconfiguration(Story::class)->addTag('foundry.story');
 
         $configurator->import('../config/services.php');
 
@@ -214,6 +219,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
 
             $makeFactoryDefinition = $container->getDefinition('.zenstruck_foundry.maker.factory');
             $makeFactoryDefinition->setArgument('$defaultNamespace', $config['make_factory']['default_namespace']);
+            $makeFactoryDefinition->setArgument('$addHints', $config['make_factory']['add_hints']);
 
             $makeStoryDefinition = $container->getDefinition('.zenstruck_foundry.maker.story');
             $makeStoryDefinition->setArgument('$defaultNamespace', $config['make_story']['default_namespace']);
@@ -229,6 +235,9 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
             if (!isset($bundles['DoctrineBundle']) && !isset($bundles['DoctrineMongoDBBundle'])) {
                 $container->removeDefinition('.zenstruck_foundry.maker.factory.doctrine_scalar_fields_default_properties_guesser');
             }
+
+            $container->getDefinition('.zenstruck_foundry.maker.factory.generator')
+                ->setArgument('$forceProperties', $config['instantiator']['always_force_properties'] ?? false);
         } else {
             $configurator->import('../config/command_stubs.php');
         }
@@ -240,41 +249,34 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
         if (isset($bundles['DoctrineBundle'])) {
             $configurator->import('../config/orm.php');
 
-            $container->getDefinition('.zenstruck_foundry.persistence_strategy.orm')
-                ->replaceArgument(1, $config['orm'])
-            ;
-
             $container->getDefinition('.zenstruck_foundry.persistence.database_resetter.orm.abstract')
                 ->replaceArgument('$managers', $config['orm']['reset']['entity_managers'])
                 ->replaceArgument('$connections', $config['orm']['reset']['connections'])
             ;
 
-            $container->getDefinition('.zenstruck_foundry.persistence.database_resetter.orm.migrate')
-                ->replaceArgument('$configurations', $config['orm']['reset']['migrations']['configurations'])
-            ;
-
             /** @var ResetDatabaseMode $resetMode */
             $resetMode = $config['orm']['reset']['mode'];
-            $toRemove = ResetDatabaseMode::SCHEMA === $resetMode ? ResetDatabaseMode::MIGRATE->value : ResetDatabaseMode::SCHEMA->value;
+            $container->getDefinition(OrmResetter::class)
+                ->setClass(
+                    match ($resetMode) {
+                        ResetDatabaseMode::SCHEMA => SchemaDatabaseResetter::class,
+                        ResetDatabaseMode::MIGRATE => MigrateDatabaseResetter::class,
+                    }
+                );
 
-            $container->removeDefinition(".zenstruck_foundry.persistence.database_resetter.orm.{$toRemove}.dama");
-            $container->removeDefinition(".zenstruck_foundry.persistence.database_resetter.orm.{$toRemove}");
-
-            $container->setAlias(OrmResetter::class, ".zenstruck_foundry.persistence.database_resetter.orm.{$resetMode->value}");
+            if (ResetDatabaseMode::MIGRATE === $resetMode) {
+                $container->getDefinition(OrmResetter::class)
+                    ->replaceArgument('$configurations', $config['orm']['reset']['migrations']['configurations'])
+                ;
+            }
         }
 
         if (isset($bundles['DoctrineMongoDBBundle'])) {
             $configurator->import('../config/mongo.php');
 
-            $container->getDefinition('.zenstruck_foundry.persistence_strategy.mongo')
-                ->replaceArgument(1, $config['mongo'])
-            ;
-
-            $container->getDefinition('.zenstruck_foundry.persistence.schema_resetter.mongo')
+            $container->getDefinition(MongoResetter::class)
                 ->replaceArgument(0, $config['mongo']['reset']['document_managers'])
             ;
-
-            $container->setAlias(MongoResetter::class, '.zenstruck_foundry.persistence.schema_resetter.mongo');
         }
     }
 
@@ -346,6 +348,8 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
      */
     private function configureFaker(array $config, ContainerBuilder $container): void
     {
+        $container->setParameter('zenstruck_foundry.faker.seed', $config['seed']);
+
         if ($config['service']) {
             $container->setAlias('.zenstruck_foundry.faker', $config['service']);
 
@@ -356,10 +360,6 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
 
         if ($config['locale']) {
             $definition->addArgument($config['locale']);
-        }
-
-        if ($config['seed']) {
-            $definition->addMethodCall('seed', [$config['seed']]);
         }
     }
 }

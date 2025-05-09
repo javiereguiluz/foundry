@@ -33,6 +33,9 @@ abstract class ObjectFactory extends Factory
     /** @phpstan-var InstantiatorCallable|null */
     private $instantiator;
 
+    /** @phpstan-var array<class-string, object> */
+    private array $reusedObjects = [];
+
     /**
      * @return class-string<T>
      */
@@ -101,5 +104,73 @@ abstract class ObjectFactory extends Factory
         $clone->afterInstantiate[] = $callback;
 
         return $clone;
+    }
+
+    /**
+     * @psalm-return static<T>
+     * @phpstan-return static
+     */
+    final public function reuse(object $object): static
+    {
+        if (isset($this->reusedObjects[$object::class])) {
+            throw new \InvalidArgumentException(\sprintf('An object of class "%s" is already being reused.', $object::class));
+        }
+
+        if ($object instanceof Factory) {
+            throw new \InvalidArgumentException('Cannot reuse a factory.');
+        }
+
+        $clone = clone $this;
+        $clone->reusedObjects[$object::class] = $object;
+
+        return $clone;
+    }
+
+    protected function normalizeParameter(string $field, mixed $value): mixed
+    {
+        if ($value instanceof self) {
+            // propagate "reused" objects
+            foreach ($this->reusedObjects as $item) {
+                // "reused" item in the target factory have priority, if they are of the same type
+                if (!isset($value->reusedObjects[$item::class])) {
+                    $value = $value->reuse($item);
+                }
+            }
+        }
+
+        return parent::normalizeParameter($field, $value);
+    }
+
+    /**
+     * @internal
+     * @phpstan-return Parameters
+     */
+    final protected function reusedAttributes(): array
+    {
+        if ([] === $this->reusedObjects) {
+            return [];
+        }
+
+        $attributes = [];
+
+        $properties = (new \ReflectionClass(static::class()))->getProperties();
+
+        foreach ($properties as $property) {
+            $type = $property->getType();
+
+            if (null === $type) {
+                continue;
+            }
+
+            if (!$type instanceof \ReflectionNamedType) {
+                continue;
+            }
+
+            if (isset($this->reusedObjects[$type->getName()])) {
+                $attributes[$property->getName()] = $this->reusedObjects[$type->getName()];
+            }
+        }
+
+        return $attributes;
     }
 }

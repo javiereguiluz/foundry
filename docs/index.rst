@@ -5,7 +5,7 @@ Foundry makes creating fixtures data fun again, via an expressive, auto-completa
 Symfony and Doctrine:
 
 The factories can be used inside `DoctrineFixturesBundle <https://symfony.com/bundles/DoctrineFixturesBundle/current/index.html>`_
-to load fixtures or inside your tests, `where it has even more features <https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#using-in-your-tests>`_.
+to load fixtures or inside your tests, :ref:`where it has even more features <using-in-your-tests>`.
 
 Foundry supports ``doctrine/orm`` (with `doctrine/doctrine-bundle <https://github.com/doctrine/doctrinebundle>`_),
 ``doctrine/mongodb-odm`` (with `doctrine/mongodb-odm-bundle <https://github.com/doctrine/DoctrineMongoDBBundle>`_)
@@ -14,7 +14,7 @@ or a combination of these.
 .. admonition:: Screencast
     :class: screencast
 
-    Want to watch a screencast 🎥 about it? Check out `https://symfonycasts.com/foundry`__
+    Want to watch a screencast 🎥 about it? Check out `symfonycasts.com/foundry <https://symfonycasts.com/foundry>`_.
 
 .. warning::
 
@@ -51,15 +51,13 @@ For the remainder of the documentation, the following sample entities will be us
     {
         #[ORM\Id]
         #[ORM\GeneratedValue]
-        #[ORM\Column(type: 'string')]
-        private $id;
+        #[ORM\Column(type: 'int')]
+        private ?int $id = null;
 
-        #[ORM\Column(type: 'string', length: 255)]
-        private $name;
-
-        public function __construct(string $name)
-        {
-            $this->name = $name;
+        public function __construct(
+            #[ORM\Column]
+            private string $name
+        ) {
         }
 
         // ... getters/setters
@@ -77,29 +75,28 @@ For the remainder of the documentation, the following sample entities will be us
     {
         #[ORM\Id]
         #[ORM\GeneratedValue]
-        #[ORM\Column(type: 'string')]
-        private $id;
-
-        #[ORM\Column(type: 'string', length: 255)]
-        private $title;
+        #[ORM\Column(type: 'int')]
+        private ?int $id = null;
 
         #[ORM\Column(type: 'text', nullable: true)]
-        private $body;
+        private ?string $body = null;
 
-        #[ORM\Column(type: 'datetime')]
-        private $createdAt;
+        #[ORM\Column(type: 'datetime_immutable')]
+        private \DateTimeImmutable $createdAt;
 
-        #[ORM\Column(type: 'datetime', nullable: true)]
-        private $publishedAt;
+        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+        private ?\DateTimeImmutable $publishedAt = null;
 
-        #[ORM\ManyToOne(targetEntity: Category::class)]
-        #[ORM\JoinColumn]
-        private $category;
+        #[ORM\ManyToOne]
+        private ?Category $category = null;
 
-        public function __construct(string $title)
+        public function __construct(
+            #[ORM\Column]
+            private string $title
+        )
         {
             $this->title = $title;
-            $this->createdAt = new \DateTime('now');
+            $this->createdAt = new \DateTimeImmutable('now');
         }
 
         // ... getters/setters
@@ -161,7 +158,7 @@ This command will generate a ``PostFactory`` class that looks like this:
         }
 
         /**
-         * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#model-factories
+         * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories
          *
          * @todo add your default values here
          */
@@ -202,12 +199,24 @@ This command will generate a ``PostFactory`` class that looks like this:
         .. code-block:: yaml
 
             # config/packages/zenstruck_foundry.yaml
-            when@dev: # see Bundle Configuration section about sharing this in the test environment
-                zenstruck_foundry:
-                    make_factory:
-                        default_namespace: 'App\\MyFactories'
+            zenstruck_foundry:
+                make_factory:
+                    default_namespace: 'App\MyFactories'
 
     You can override this configuration by using the ``--namespace`` option.
+
+.. tip::
+
+    Feeling polluted by all these "beginners" hints in the generated factory? You can disable them in the configuration:
+
+    .. configuration-block::
+
+        .. code-block:: yaml
+
+            # config/packages/zenstruck_foundry.yaml
+            zenstruck_foundry:
+                make_factory:
+                    add_hints: false
 
 .. note::
 
@@ -505,6 +514,43 @@ Sequences help to create different objects in one call:
             ]
         )->create();
 
+Distribute values over a collection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you have a collection of values that you want to distribute over a collection, you can use the ``distribute()`` method:
+
+::
+
+    // let's say we have 2 categories...
+    $categories = CategoryFactory::createSequence(
+        [
+            ['name' => 'category 1'],
+            ['name' => 'category 2'],
+        ]
+    );
+
+    // ...that we want to "distribute" over 2 posts
+    $posts = PostFactory::new()
+        ->sequence(
+            [
+                ['name' => 'post 1'],
+                ['name' => 'post 2'],
+            ]
+        )
+
+        // "post 1" will have "category 1" and "post 2" will have "category 2"
+        ->distribute('category', $categories)
+
+        // you can even chain "distribute()" methods:
+        // first post is published today, second post is published tomorrow
+        ->distribute('publishedAt', [new \DateTimeImmutable('today'), new \DateTimeImmutable('tomorrow')])
+
+        ->create();
+
+.. versionadded::  2.4
+
+    The ``distribute()`` method was added in Foundry 2.4.
+
 Faker
 ~~~~~
 
@@ -519,8 +565,7 @@ random data for your factories:
 
 .. note::
 
-    You can customize Faker's `locale <https://fakerphp.org/#localization>`_ and random
-    `seed <https://fakerphp.org/#seeding-the-generator>`_:
+    You can customize Faker's `locale <https://fakerphp.org/#localization>`_:
 
     .. code-block:: yaml
 
@@ -529,14 +574,11 @@ random data for your factories:
             zenstruck_foundry:
                 faker:
                     locale: fr_FR # set the locale
-                    seed: 5678 # set the random number generator seed
 
 .. note::
 
     You can register your own *Faker Provider* by tagging any service with ``foundry.faker_provider``.
-    All public methods on this service will be available on Foundry's Faker instance:
-
-::
+    All public methods on this service will be available on Foundry's Faker instance::
 
         use function Zenstruck\Foundry\faker;
 
@@ -554,10 +596,33 @@ random data for your factories:
                 faker:
                     service: my_faker # service id for your own instance of Faker\Generator
 
-Events / Hooks
-~~~~~~~~~~~~~~
+Reproducibility
+...............
 
-The following events can be added to factories. Multiple event callbacks can be added, they are run in the order
+Foundry sets a different random seed for each PHPUnit run. This means that Faker will generate different data on each run.
+If you're using Foundry's `PHPUnit Extension`_, it will automatically display the seed used for each test run.
+
+You can also freeze the seed, by using the environment variable ``FOUNDRY_FAKER_SEED``:
+
+.. code-block:: terminal
+
+    $ FOUNDRY_FAKER_SEED=1234 vendor/bin/phpunit
+
+    ...................................                               35 / 35 (100%)
+
+    Faker seed: 1234
+
+    Time: 00:00.047, Memory: 48.50 MB
+
+.. versionadded::  2.4
+
+    Support for ``FOUNDRY_FAKER_SEED`` was added in 2.4.
+
+
+Hooks
+~~~~~
+
+The following hooks can be added to factories. Multiple hooks callbacks can be added, they are run in the order
 they were added.
 
 ::
@@ -566,28 +631,28 @@ they were added.
     use Zenstruck\Foundry\Proxy;
 
     PostFactory::new()
-        ->beforeInstantiate(function(array $attributes, string $class, static $factory): array {
-            // $attributes is what will be used to instantiate the object, manipulate as required
+        ->beforeInstantiate(function(array $parameters, string $class, static $factory): array {
+            // $parameters is what will be used to instantiate the object, manipulate as required
             // $class is the class of the object being instantiated
             // $factory is the factory instance which creates the object
-            $attributes['title'] = 'Different title';
+            $parameters['title'] = 'Different title';
 
-            return $attributes; // must return the final $attributes
+            return $parameters; // must return the final $parameters
         })
-        ->afterInstantiate(function(Post $object, array $attributes, static $factory): void {
+        ->afterInstantiate(function(Post $object, array $parameters, static $factory): void {
             // $object is the instantiated object
-            // $attributes contains the attributes used to instantiate the object and any extras
+            // $parameters contains the attributes used to instantiate the object and any extras
             // $factory is the factory instance which creates the object
         })
-        ->afterPersist(function(Post $object, array $attributes, static $factory) {
+        ->afterPersist(function(Post $object, array $parameters, static $factory) {
             // this event is only called if the object was persisted
             // $object is the persisted Post object
-            // $attributes contains the attributes used to instantiate the object and any extras
+            // $parameters contains the attributes used to instantiate the object and any extras
             // $factory is the factory instance which creates the object
         })
 
         // multiple events are allowed
-        ->beforeInstantiate(function($attributes) { return $attributes; })
+        ->beforeInstantiate(function($parameters) { return $parameters; })
         ->afterInstantiate(function() {})
         ->afterPersist(function() {})
     ;
@@ -708,6 +773,30 @@ instantiators):
                 always_force_properties: true # always "force set" properties
                 # or
                 service: my_instantiator # your own invokable service for complete control
+
+``force()`` helper
+..................
+
+``Instantiator::alwaysForce()`` forces the property globally for the factory.
+
+It is also possible to force a property on-demand, thanks to the ``force()`` helper. You can use it to temporary
+prevent using a setter (constructor arguments will still be passed)
+
+::
+
+    use App\Factory\PostFactory;
+
+    use function Zenstruck\Foundry\force;
+
+    // in this case, the "body" attribute will be set directly, without using the setter
+    PostFactory::createOne(['body' => force('some body')]) ;
+
+    // in this case, the "title" attribute will still be used in the constructor (otherwise an error would be thrown)
+    PostFactory::createOne(['title' => force('some title')]) ;
+    // ...unless we disable the constructor:
+    PostFactory::new()
+        ->instantiateWith(Instantiator::withoutConstructor())
+        ->create(['title' => force('some title')]) ;
 
 Immutable
 ~~~~~~~~~
@@ -864,6 +953,31 @@ The following assumes the ``Post`` entity has a many-to-many relationship with `
     // Example 5: create 3 Posts each with between 0 and 3 unique Tags
     PostFactory::createMany(3, ['tags' => TagFactory::new()->many(0, 3)]);
 
+Reuse Objects in Relationships
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When creating nested objects, sometimes it can be useful to tell Foundry to always use the same object for a given class.
+It can enforce coherence in your fixtures and avoid creating too many objects.
+
+In order to do this, you can use the ``reuse()`` method: it will force Foundry to use the object passed as parameter in
+all ``ManyToOne`` and ``OneToOne`` relationships using the class of this object:
+
+::
+
+    // let's say both Post and Comment classes have a ManyToOne field "author" of class User
+    $user = UserFactory::createOne();
+
+    PostFactory::new([
+        'comments' => CommentFactory::new()->many(5),
+    ])
+        // by calling reuse, the post and all its comments will have the same author
+        ->reuse($user)
+        ->create();
+
+.. versionadded::  2.4
+
+    The ``reuse()`` method was added in Foundry 2.4.
+
 Lazy Values
 ~~~~~~~~~~~
 
@@ -892,7 +1006,7 @@ the LazyValue can be `memoized <https://en.wikipedia.org/wiki/Memoization>`_ so 
                 return [
                     // Call CategoryFactory::random() everytime this factory is instantiated
                     'category' => LazyValue::new(fn() => CategoryFactory::random()),
-                    // The same UserForPersistentFactory instance will be both added to the Project and set as the Task owner
+                    // The same User instance will be both added to the Project and set as the Task owner
                     'project' => ProjectFactory::new(['users' => [$owner]]),
                     'owner'   => $owner,
                 ];
@@ -917,18 +1031,16 @@ common use-case: encoding a password with the ``UserPasswordHasherInterface`` se
 
     final class UserFactory extends PersistentProxyObjectFactory
     {
-        private $passwordHasher;
-
-        public function __construct(UserPasswordHasherInterface $passwordHasher)
-        {
+        // the injected service should be nullable in order to be used in unit test, without container
+        public function __construct(
+            private ?UserPasswordHasherInterface $passwordHasher = null
+        ) {
             parent::__construct();
-
-            $this->passwordHasher = $passwordHasher;
         }
 
         public static function class(): string
         {
-            return UserForPersistentFactory::class;
+            return User::class;
         }
 
         protected function defaults(): array
@@ -942,8 +1054,10 @@ common use-case: encoding a password with the ``UserPasswordHasherInterface`` se
         protected function initialize(): static
         {
             return $this
-                ->afterInstantiate(function(UserForPersistentFactory $user) {
-                    $user->setPassword($this->passwordHasher->hashPassword($user, $user->getPassword()));
+                ->afterInstantiate(function(User $user) {
+                    if ($this->passwordHasher !== null) {
+                        $user->setPassword($this->passwordHasher->hashPassword($user, $user->getPassword()));
+                    }
                 })
             ;
         }
@@ -968,6 +1082,12 @@ Use the factory as normal:
     If using ``make:factory --test``, factories will be created in the ``tests/Factory`` directory which is not
     autowired/autoconfigured in a standard Symfony Flex app. You will have to manually register these as
     services.
+
+.. warning::
+
+    "Service factories" are meant to be used along with "functional" or "integration" tests (the ones using ``KernelTestCase``
+    or ``WebTestCase``). If you want to use them in "unit tests" (the ones using ``TestCase``), where Symfony's container
+    cannot be used, you will have to make the injected services nullable.
 
 Anonymous Factories
 ~~~~~~~~~~~~~~~~~~~
@@ -1066,7 +1186,7 @@ won't be wrapped with a :ref:`proxy object <object-proxy>`).
 Without Persisting
 ~~~~~~~~~~~~~~~~~~
 
-"Persitent factories" can also create objects without persisting them. This can be useful for unit tests where you just
+"Persistent factories" can also create objects without persisting them. This can be useful for unit tests where you just
 want to test the behavior of the actual object or for creating objects that are not entities. When created, they are
 still wrapped in a ``Proxy`` to optionally save later.
 
@@ -1308,17 +1428,18 @@ bundle's configuration:
         # config/packages/zenstruck_foundry.yaml
         when@dev: # see Bundle Configuration section about sharing this in the test environment
             zenstruck_foundry:
-                database_resetter:
-                    orm:
+                orm:
+                    reset:
                         connections:
                             - orm_connection_1
                             - orm_connection_2
-                        object_managers:
+                        entity_managers:
                             - orm_object_manager_1
                             - orm_object_manager_2
-                        reset_mode: schema # default value, enables resetting the schema with doctrine:schema commands
-                    mongo:
-                        object_managers:
+                        mode: schema # default value, enables resetting the schema with doctrine:schema commands
+                mongo:
+                    reset:
+                        document_managers:
                             - odm_object_manager_1
                             - odm_object_manager_2
 
@@ -1343,9 +1464,9 @@ files.
         # config/packages/zenstruck_foundry.yaml
         when@dev: # see Bundle Configuration section about sharing this in the test environment
             zenstruck_foundry:
-                database_resetter:
-                    orm:
-                        reset_mode: migrate # enables resetting with migrations
+                orm:
+                    reset:
+                        mode: migrate # enables resetting with migrations
 
                         # optional: allows you to pass additional configuration to the doctrine:migrations:migrate command
                         migrations:
@@ -1512,7 +1633,9 @@ Proxy objects pitfalls
 
 Proxified objects may have some pitfalls when dealing with Doctrine's entity manager. You may encounter this error:
 
-> Doctrine\ORM\ORMInvalidArgumentException: A new entity was found through the relationship
+.. code-block:: text
+
+    > Doctrine\ORM\ORMInvalidArgumentException: A new entity was found through the relationship
     'App\Entity\Post#category' that was not configured to cascade persist operations for entity: AppEntityCategoryProxy@3082.
     To solve this issue: Either explicitly call EntityManager#persist() on this unknown entity or configure cascade persist
     this association in the mapping for example @ManyToOne(..,cascade={"persist"}). If you cannot find out which entity
@@ -1521,13 +1644,12 @@ Proxified objects may have some pitfalls when dealing with Doctrine's entity man
 The problem will occur if a proxy has been passed to ``EntityManager::persist()``. To fix this, you should pass the "real"
 object, by calling ``$proxyfiedObject->_real()``.
 
-
 Factory without proxy
 .....................
 
 It is possible to create factories which do not create "proxified" objects. Instead of making your factory inherit from
 ``PersistentProxyObjectFactory``, you can inherit from ``PersistentObjectFactory``. Your factory will then directly return
-the "real" object, which won't be wrapped by `Proxy` class.
+the "real" object, which won't be wrapped by ``Proxy`` class.
 
 .. warning::
 
@@ -1605,7 +1727,7 @@ Global State
 ~~~~~~~~~~~~
 
 If you have an initial database state you want for all tests, you can set this in the config of the bundle. Accepted
-values are: stories as service, "global" stories and invokable services. Global state is loaded before each using
+values are: stories as service, "global" stories and invokable services. Global state is loaded before each test using
 the ``ResetDatabase`` trait. If you are using `DamaDoctrineTestBundle`_, it is only loaded once for the entire
 test suite.
 
@@ -1655,10 +1777,11 @@ With PHPUnit Extension
 
 Thanks to Foundry's `PHPUnit Extension`_, you'll be able to use your factories in your data providers the same way
 you're using them in tests. Thanks to it, you can:
-    * Call ``->create()`` or ``::createOne()`` or any other method which creates objects in unit tests
-    (using ``PHPUnit\Framework\TestCase``) and functional tests (``Symfony\Bundle\FrameworkBundle\Test\KernelTestCase``)
-    * Use `Factories as Services`_ in functional tests
-    * Use `faker()` normally, without wrapping its call in a callable
+
+* Call ``->create()`` or ``::createOne()`` or any other method which creates objects in unit tests
+  (using ``PHPUnit\Framework\TestCase``) and functional tests (``Symfony\Bundle\FrameworkBundle\Test\KernelTestCase``);
+* Use `Factories as Services`_ in functional tests;
+* Use ``faker()`` normally, without wrapping its call in a callable.
 
 ::
 
@@ -1680,12 +1803,12 @@ you're using them in tests. Thanks to it, you can:
 
 .. warning::
 
-    Because Foundry is relying on its `Proxy mechanism <object-proxy>`_, when using persistence,
+    Because Foundry is relying on its :ref:`Proxy mechanism <#object-proxy>`, when using persistence,
     your factories must extend ``Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory`` to work in your data providers.
 
 .. warning::
 
-    For the same reason, you should not call methods from `Proxy` class in your data providers, not even ``->_real()``.
+    For the same reason, you should not call methods from ``Proxy`` class in your data providers, not even ``->_real()``.
 
 
 Without PHPUnit Extension
@@ -1770,7 +1893,7 @@ Be sure your data provider returns only instances of ``Factory`` and you do not 
             )->asDataProvider();
         }
 
-    The ``FactoryCollection`` could also be passed directly to the test case in order to have several objects available in the same test:
+The ``FactoryCollection`` could also be passed directly to the test case in order to have several objects available in the same test:
 
 ::
 
@@ -1900,7 +2023,7 @@ You can improve the speed by reducing the *work factor* of your encoder:
     # config/packages/test/security.yaml
     encoders:
         # use your user class name here
-        App\Entity\UserForPersistentFactory:
+        App\Entity\User:
             # This should be the same value as in config/packages/security.yaml
             algorithm: auto
             cost: 4 # Lowest possible value for bcrypt
@@ -2287,9 +2410,6 @@ Full Default Bundle Configuration
             # Change the default faker locale.
             locale:               null # Example: fr_FR
 
-            # Random number generator seed to produce the same fake values every run
-            seed:                 null # Example: '1234'
-
             # Customize the faker service.
             service:              null # Example: my_faker
 
@@ -2345,6 +2465,9 @@ Full Default Bundle Configuration
 
             # Default namespace where factories will be created by maker.
             default_namespace:    Factory
+
+            # Add "beginner" hints in the created factory.
+            add_hints:    true
         make_story:
 
             # Default namespace where stories will be created by maker.

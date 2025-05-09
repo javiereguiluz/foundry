@@ -31,14 +31,16 @@ use Zenstruck\Foundry\Tests\Fixture\Entity\Category;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Contact;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Tag;
 
+use function Zenstruck\Foundry\lazy;
+use function Zenstruck\Foundry\Persistence\refresh;
 use function Zenstruck\Foundry\Persistence\unproxy;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
  * @author Nicolas PHILIPPE <nikophil@gmail.com>
- * @requires PHPUnit ^11.4
+ * @requires PHPUnit >=11.4
  */
-#[RequiresPhpunit('^11.4')]
+#[RequiresPhpunit('>=11.4')]
 abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
 {
     use ChangesEntityRelationshipCascadePersist, Factories, ResetDatabase;
@@ -167,7 +169,7 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
     #[Test]
     #[DataProvider('provideCascadeRelationshipsCombinations')]
     #[UsingRelationships(Address::class, ['contact'])]
-    #[UsingRelationships(Contact::class, ['address'])]
+    #[UsingRelationships(Contact::class, ['address', 'category'])]
     public function inversed_one_to_one(): void
     {
         $address = static::addressFactory()->create(['contact' => static::contactFactory()]);
@@ -303,9 +305,12 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
     public function disabling_persistence_cascades_to_children(): void
     {
         $contact = static::contactFactory()->withoutPersisting()->create([
-            'tags' => static::tagFactory()::new()->many(3),
+            'tags' => static::tagFactory()->many(3),
             'category' => static::categoryFactory(),
         ]);
+
+        // ensure nothing was persisted in Doctrine by flushing
+        self::getContainer()->get(EntityManagerInterface::class)->flush(); // @phpstan-ignore method.notFound
 
         static::contactFactory()::assert()->empty();
         static::categoryFactory()::assert()->empty();
@@ -320,10 +325,20 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
         foreach ($contact->getTags() as $tag) {
             $this->assertNull($tag->id);
         }
+    }
 
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function disabling_persistence_cascades_to_children_one_to_many(): void
+    {
         $category = static::categoryFactory()->withoutPersisting()->create([
             'contacts' => static::contactFactory()->many(3),
         ]);
+
+        // ensure nothing was persisted in Doctrine by flushing
+        self::getContainer()->get(EntityManagerInterface::class)->flush(); // @phpstan-ignore method.notFound
 
         static::contactFactory()::assert()->empty();
         static::categoryFactory()::assert()->empty();
@@ -334,6 +349,27 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
         foreach ($category->getContacts() as $contact) {
             $this->assertSame($category->getName(), $contact->getCategory()?->getName());
         }
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['address'])]
+    public function disabling_persistence_cascades_to_children_inversed_one_to_one(): void
+    {
+        $address = static::addressFactory()->withoutPersisting()->create([
+            'contact' => static::contactFactory(),
+        ]);
+
+        // ensure nothing was persisted in Doctrine by flushing
+        self::getContainer()->get(EntityManagerInterface::class)->flush(); // @phpstan-ignore method.notFound
+
+        static::contactFactory()::assert()->empty();
+        static::addressFactory()::assert()->empty();
+
+        $this->assertNull($address->id);
+        $this->assertInstanceOf(Contact::class, $address->getContact());
+        $this->assertNull($address->getContact()->id);
     }
 
     /** @test */
@@ -361,6 +397,266 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
         }
     }
 
+    /** @test */
+    #[Test]
+    public function assert_updates_are_implicitly_persisted(): void
+    {
+        $category = static::categoryFactory()->create();
+        $address = static::addressFactory()->create();
+
+        $category->setName('new name');
+
+        static::contactFactory()->create(['category' => $category, 'address' => $address]);
+
+        refresh($category);
+        self::assertSame('new name', $category->getName());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Category::class, ['contacts'])]
+    public function it_can_add_managed_entity_to_many_to_one(): void
+    {
+        $this->it_can_add_entity_to_many_to_one(
+            static::categoryFactory()->create()
+        );
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Category::class, ['contacts'])]
+    public function it_can_add_unmanaged_entity_to_many_to_one(): void
+    {
+        $this->it_can_add_entity_to_many_to_one(
+            static::categoryFactory()->withoutPersisting()->create()
+        );
+    }
+
+    /** @test */
+    #[Test]
+    public function it_uses_after_persist_with_many_to_many(): void
+    {
+        $contact = static::contactFactory()
+            ->with(
+                [
+                    'tags' => static::tagFactory()
+                        ->afterPersist(static function(Tag $tag) {$tag->setName('foobar'); })
+                        ->many(1),
+                ]
+            )
+            ->create();
+
+        self::assertEquals('foobar', $contact->getTags()[0]?->getName());
+    }
+
+    /** @test */
+    #[Test]
+    public function it_uses_after_persist_with_one_to_many(): void
+    {
+        $category = static::categoryFactory()
+            ->with([
+                'contacts' => static::contactFactory()
+                    ->afterPersist(static function(Contact $contact) {
+                        $contact->setName('foobar');
+                    })
+                    ->many(1),
+            ])->create();
+
+        self::assertEquals('foobar', $category->getContacts()[0]?->getName());
+    }
+
+    /** @test */
+    #[Test]
+    public function it_uses_after_persist_with_many_to_one(): void
+    {
+        $contact = static::contactFactory()
+            ->with([
+                'category' => static::categoryFactory()
+                    ->afterPersist(static function(Category $category) {
+                        $category->setName('foobar');
+                    }),
+            ])->create();
+
+        self::assertEquals('foobar', $contact->getCategory()?->getName());
+    }
+
+    /** @test */
+    #[Test]
+    public function it_uses_after_persist_with_one_to_one(): void
+    {
+        $contact = static::contactFactory()
+            ->with([
+                'address' => static::addressFactory()
+                    ->afterPersist(static function(Address $address) {$address->setCity('foobar'); }),
+            ])->create();
+
+        self::assertEquals('foobar', $contact->getAddress()->getCity());
+    }
+
+    /** @test */
+    #[Test]
+    public function it_uses_after_persist_with_inversed_one_to_one(): void
+    {
+        $address = static::addressFactory()
+            ->with([
+                'contact' => static::contactFactory()
+                    ->afterPersist(static function(Contact $contact) {$contact->setName('foobar'); }),
+            ])->create();
+
+        self::assertEquals('foobar', $address->getContact()?->getName());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function can_call_create_in_after_persist_callback(): void
+    {
+        $category = static::categoryFactory()::new()
+            ->afterPersist(function(Category $category) {
+                static::contactFactory()->create(['category' => $category]);
+            })
+            ->create();
+
+        static::categoryFactory()::assert()->count(1);
+        static::contactFactory()::assert()->count(1);
+        self::assertCount(1, $category->getContacts());
+        self::assertSame(unproxy($category), $category->getContacts()[0]?->getCategory());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['address'])]
+    public function can_use_nested_after_persist_callback(): void
+    {
+        $contact = static::contactFactory()::createOne(
+            [
+                'address' => static::addressFactory()
+                    ->afterPersist(function(Address $address) {
+                        $address->setCity('city from after persist');
+                    }),
+            ]
+        );
+
+        self::assertSame('city from after persist', $contact->getAddress()->getCity());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function can_call_create_in_nested_after_persist_callback(): void
+    {
+        $contact = static::contactFactory()::createOne(
+            [
+                'category' => static::categoryFactory()
+                    ->afterPersist(function(Category $category) {
+                        $category->addSecondaryContact(
+                            unproxy(static::contactFactory()::createOne())
+                        );
+                    }),
+            ]
+        );
+
+        self::assertCount(1, $contact->getCategory()?->getSecondaryContacts() ?? []);
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Address::class, ['contact'])]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function inverse_one_to_one_with_flush_in_before_instantiate(): void
+    {
+        $address = static::addressFactory()::createOne(
+            [
+                'contact' => static::contactFactory()
+                    ->beforeInstantiate(
+                        function(array $attributes): array {
+                            $attributes['category'] = static::categoryFactory()->create();
+
+                            return $attributes;
+                        }
+                    ),
+            ]
+        );
+
+        static::addressFactory()::assert()->count(1);
+        static::contactFactory()::assert()->count(1);
+        static::categoryFactory()::assert()->count(1);
+
+        self::assertNotNull($address->getContact());
+        self::assertNotNull($address->getContact()->getCategory());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Address::class, ['contact'])]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function inverse_one_to_one_with_lazy_flush(): void
+    {
+        $address = static::addressFactory()::createOne(
+            [
+                'contact' => static::contactFactory()->with([
+                    'category' => lazy(fn() => static::categoryFactory()->create()),
+                ]),
+            ]
+        );
+
+        static::addressFactory()::assert()->count(1);
+        static::contactFactory()::assert()->count(1);
+        static::categoryFactory()::assert()->count(1);
+
+        self::assertNotNull($address->getContact());
+        self::assertNotNull($address->getContact()->getCategory());
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function after_instantiate_flushing_using_current_object_in_relationship_many_to_one(): void
+    {
+        $category = static::categoryFactory()
+            ->afterInstantiate(
+                static function(Category $c): void {
+                    static::contactFactory()->create(['category' => $c]);
+                }
+            )
+            ->create();
+
+        static::contactFactory()::assert()->count(1);
+        static::categoryFactory()::assert()->count(1);
+
+        self::assertCount(1, $category->getContacts());
+        self::assertNotNull($category->getContacts()[0] ?? null);
+    }
+
+    /** @test */
+    #[Test]
+    #[DataProvider('provideCascadeRelationshipsCombinations')]
+    #[UsingRelationships(Contact::class, ['category'])]
+    public function after_instantiate_flushing_using_current_object_in_relationship_one_to_many(): void
+    {
+        $contact = static::contactFactory()
+            ->afterInstantiate(
+                static function(Contact $c): void {
+                    static::categoryFactory()->create(['contacts' => [$c]]);
+                }
+            )
+            ->create(['category' => null]);
+
+        static::contactFactory()::assert()->count(1);
+        static::categoryFactory()::assert()->count(1);
+
+        self::assertNotNull($contact->getCategory());
+        self::assertCount(1, $contact->getCategory()->getContacts());
+    }
+
     /** @return PersistentObjectFactory<Contact> */
     protected static function contactFactoryWithoutCategory(): PersistentObjectFactory
     {
@@ -378,6 +674,21 @@ abstract class EntityFactoryRelationshipTestCase extends KernelTestCase
 
     /** @return PersistentObjectFactory<Address> */
     abstract protected static function addressFactory(): PersistentObjectFactory;
+
+    private function it_can_add_entity_to_many_to_one(Category $category): void
+    {
+        self::assertCount(0, $category->getContacts());
+
+        $contact1 = static::contactFactory()->create(['category' => $category]);
+        $contact2 = static::contactFactory()->create(['category' => $category]);
+
+        static::categoryFactory()::assert()->count(1);
+
+        self::assertCount(2, $category->getContacts());
+
+        self::assertSame(unproxy($category), $contact1->getCategory());
+        self::assertSame(unproxy($category), $contact2->getCategory());
+    }
 
     /**
      * @param FactoryCollection<Contact, PersistentObjectFactory<Contact>>|list<Factory<Contact>>|list<Contact> $contacts
