@@ -1,5 +1,66 @@
 # CHANGELOG
 
+## [v2.6.0](https://github.com/zenstruck/foundry/releases/tag/v2.6.0)
+
+June 5th, 2025 - [v2.5.4...v2.6.0](https://github.com/zenstruck/foundry/compare/v2.5.4...v2.6.0)
+
+* 7e434ff feat: minor improvements to foundry:load-stories (#930) by @nikophil
+* bd50a86 merge 2.5.x into 2.x (#931) by @nikophil
+* 159d700 doc: adjust flow (#923) by @kbond
+* ca95279 feat: Introduce `#[AsFixture]` attribute and `foundry:load-fixture` command (#903) by @nikophil
+
+## [v2.5.5](https://github.com/zenstruck/foundry/releases/tag/v2.5.5)
+
+June 4th, 2025 - [v2.5.4...v2.5.5](https://github.com/zenstruck/foundry/compare/v2.5.4...v2.5.5)
+
+* 8238e0f fix: remove useless Configuration::boted() check (#929) by @nikophil
+
+## [v2.5.4](https://github.com/zenstruck/foundry/releases/tag/v2.5.4)
+
+May 31st, 2025 - [v2.5.3...v2.5.4](https://github.com/zenstruck/foundry/compare/v2.5.3...v2.5.4)
+
+* 8e202b4 fix: TypeError `FactoryCollection::create()` when calling many with 0 (#925) by @jdecool
+
+## [v2.5.3](https://github.com/zenstruck/foundry/releases/tag/v2.5.3)
+
+May 30th, 2025 - [v2.5.2...v2.5.3](https://github.com/zenstruck/foundry/compare/v2.5.2...v2.5.3)
+
+* 01c5ce3 fix: should not use flush_after() in FactoryCollection::create() (#908) by @nikophil
+* 7545b2f docs: Fix LazyValue namespace (#919) by @odolbeau
+* ccc309b docs: fix quote (#918) by @nikophil
+* f0ae498 docs: Fix `save()` -> `_save()` in documentation (#917) by @smnandre
+
+## [v2.5.2](https://github.com/zenstruck/foundry/releases/tag/v2.5.2)
+
+May 26th, 2025 - [v2.5.1...v2.5.2](https://github.com/zenstruck/foundry/compare/v2.5.1...v2.5.2)
+
+* 40ce8a2 fix: reuse should work with all kind of relationships (#915) by @nikophil
+* f6c81a0 fix: can use reuse with inheritance (#914) by @nikophil
+
+## [v2.5.1](https://github.com/zenstruck/foundry/releases/tag/v2.5.1)
+
+May 22nd, 2025 - [v2.5.0...v2.5.1](https://github.com/zenstruck/foundry/compare/v2.5.0...v2.5.1)
+
+* fe12d09 fix: add missing flush_once feature flag (#912) by @phasdev
+* f991999 docs: Fix data providers phpunit link (#906) by @alexander-schranz
+* 19ddd55 docs: in memory behavior needs PhpUnit extension (#905) by @nikophil
+* 6a0b4ac docs: improve docs for in-memory repositories (#904) by @nikophil
+
+## [v2.5.0](https://github.com/zenstruck/foundry/releases/tag/v2.5.0)
+
+May 13th, 2025 - [v2.4.3...v2.5.0](https://github.com/zenstruck/foundry/compare/v2.4.3...v2.5.0)
+
+* cdbacdd minor: ignore deprecations related to ProxyHelper::generateLazyProxy() (#901) by @nikophil
+* a54d97e minor: ignore deprecations related to ProxyHelper::generateLazyProxy() (#901) by @nikophil
+* ae662a3 minor: make "in-memory" classes experimental (#895) (#901) by @nikophil
+* 87acf7a feat: add generic doctrine-like repository for in-memory (#887) (#901) by @nikophil
+* 7b6f70c feat: enable flush once with config (#885) (#901) by @nikophil
+* 30270ec feat: introduce "in-memory" behavior (#590) (#901) by @nikophil
+* 0b09c20 chore: decouple from framework bundle (#882) (#901) by @nikophil
+* df4d355 chore: misc DX and testsuite improvements (#881) (#901) by @nikophil
+* a19ce4c tests: add `ZenstruckFoundryBundleTest` (#878) (#901) by @silasjoisten, @nikophil
+* 5b027c0 feat: flush once (#873) (#901) by @nikophil
+
 ## [v2.4.3](https://github.com/zenstruck/foundry/releases/tag/v2.4.3)
 
 May 5th, 2025 - [v2.4.2...v2.4.3](https://github.com/zenstruck/foundry/compare/v2.4.2...v2.4.3)

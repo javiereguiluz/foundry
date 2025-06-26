@@ -12,6 +12,7 @@
 namespace Zenstruck\Foundry;
 
 use Faker;
+use Zenstruck\Foundry\Exception\CannotCreateFactory;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -46,7 +47,7 @@ abstract class Factory
         try {
             $factory ??= new static(); // @phpstan-ignore new.static
         } catch (\ArgumentCountError $e) {
-            throw new \LogicException('Factories with dependencies (services) cannot be created before foundry is booted.', previous: $e);
+            throw CannotCreateFactory::argumentCountError($e);
         }
 
         return $factory
@@ -184,7 +185,7 @@ abstract class Factory
         // "reused" attributes will override the ones from "defaults()"
         // but should be overridden by the other states of the factory
         if ($this instanceof ObjectFactory) {
-            $mergedAttributes[] = $this->reusedAttributes();
+            $mergedAttributes[] = $this->normalizeReusedAttributes();
         }
 
         $mergedAttributes = [...$mergedAttributes, ...$this->attributes, $attributes];
@@ -256,7 +257,7 @@ abstract class Factory
             );
         }
 
-        return \is_object($value) ? $this->normalizeObject($value) : $value;
+        return \is_object($value) ? $this->normalizeObject($field, $value) : $value;
     }
 
     /**
@@ -274,7 +275,7 @@ abstract class Factory
     /**
      * @internal
      */
-    protected function normalizeObject(object $object): object
+    protected function normalizeObject(string $field, object $object): object
     {
         return $object;
     }

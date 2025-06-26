@@ -96,6 +96,14 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
     /**
      * @return list<T&Proxy<T>>
      */
+    public static function randomRangeOrCreate(int $min, int $max, array $criteria = []): array
+    {
+        return \array_map(proxy(...), parent::randomRangeOrCreate($min, $max, $criteria));
+    }
+
+    /**
+     * @return list<T&Proxy<T>>
+     */
     final public static function findBy(array $criteria): array
     {
         return \array_map(proxy(...), parent::findBy($criteria));
@@ -143,6 +151,6 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
     {
         Configuration::instance()->assertPersistenceEnabled();
 
-        return new ProxyRepositoryDecorator(static::class()); // @phpstan-ignore argument.type, return.type
+        return new ProxyRepositoryDecorator(static::class(), Configuration::instance()->isInMemoryEnabled()); // @phpstan-ignore argument.type, return.type
     }
 }

@@ -26,6 +26,7 @@ use Zenstruck\Foundry\Persistence\PersistMode;
 final class FactoryCollection implements \IteratorAggregate
 {
     private PersistMode $persistMode;
+    private bool $isRootFactory = true;
 
     /**
      * @param TFactory $factory
@@ -45,6 +46,18 @@ final class FactoryCollection implements \IteratorAggregate
     {
         $clone = clone $this;
         $clone->persistMode = $persistMode;
+
+        return $clone;
+    }
+
+    /**
+     * @internal
+     * @return self<T, TFactory>
+     */
+    public function notRootFactory(): static
+    {
+        $clone = clone $this;
+        $clone->isRootFactory = false;
 
         return $clone;
     }
@@ -131,7 +144,19 @@ final class FactoryCollection implements \IteratorAggregate
      */
     public function create(array|callable $attributes = []): array
     {
-        return \array_map(static fn(Factory $f) => $f->create($attributes), $this->all());
+        $factories = $this->all();
+
+        if (Configuration::instance()->flushOnce && $this->isRootFactory && $this->factory instanceof PersistentObjectFactory && $this->factory->isPersisting()) {
+            $lastFactory = \array_pop($factories);
+            // @phpstan-ignore method.notFound (phpstan does not understand that we only have persistent factories here)
+            $factories = \array_map(static fn(Factory $f) => $f->notRootFactory(), $factories);
+
+            if (null !== $lastFactory) {
+                $factories[] = $lastFactory;
+            }
+        }
+
+        return \array_map(static fn(Factory $f) => $f->create($attributes), $factories);
     }
 
     /**
@@ -155,6 +180,10 @@ final class FactoryCollection implements \IteratorAggregate
         return \array_map( // @phpstan-ignore return.type (PHPStan does not understand we have an array of factories)
             function(Factory $f) {
                 if ($f instanceof PersistentObjectFactory) {
+                    if (!$this->isRootFactory) {
+                        $f = $f->notRootFactory();
+                    }
+
                     return $f->withPersistMode($this->persistMode);
                 }
 
@@ -183,6 +212,26 @@ final class FactoryCollection implements \IteratorAggregate
                 static fn(Factory $f, $value) => $f->with([$field => $value]),
                 $factories,
                 $values
+            )
+        );
+    }
+
+    /**
+     * @internal
+     */
+    public function reuse(object ...$objects): static
+    {
+        if (0 === \count($objects)) {
+            return $this;
+        }
+
+        $factories = $this->all();
+
+        return new self(
+            $this->factory,
+            static fn() => \array_map(
+                static fn(Factory $f) => $f instanceof ObjectFactory ? $f->reuse(...$objects) : $f,
+                $factories,
             )
         );
     }

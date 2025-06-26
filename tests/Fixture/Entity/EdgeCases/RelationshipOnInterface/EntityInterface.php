@@ -11,11 +11,8 @@ declare(strict_types=1);
  * file that was distributed with this source code.
  */
 
-namespace Zenstruck\Foundry\Tests\Integration\ForceFactoriesTraitUsage;
+namespace Zenstruck\Foundry\Tests\Fixture\Entity\EdgeCases\RelationshipOnInterface;
 
-use PHPUnit\Framework\Attributes\RequiresPhpunit;
-
-#[RequiresPhpunit('>=11.0')]
-final class KernelTestCaseWithoutFactoriesTraitTest extends KernelTestCaseWithoutFactoriesTraitTestCase
+interface EntityInterface
 {
 }
