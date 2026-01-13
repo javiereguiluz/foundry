@@ -98,7 +98,11 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
         }
 
         /** @var T|null $object */
-        $object = $this->inner()->find(unproxy($id));
+        $object = $this->inner()->find(ProxyGenerator::unwrap($id));
+
+        if ($object && !$this instanceof ProxyRepositoryDecorator) {
+            Configuration::instance()->persistedObjectsTracker?->add($object);
+        }
 
         return $object;
     }
@@ -116,18 +120,26 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function findAll(): array
     {
-        return \array_values($this->inner()->findAll());
+        return $this->findBy([]);
     }
 
     /**
-     * @param ?int $limit
-     * @param ?int $offset
+     * @param array<string, string>|null $orderBy
+     * @param ?int                       $limit
+     * @param ?int                       $offset
+     * @phpstan-param array<string, 'asc'|'desc'|'ASC'|'DESC'>|null $orderBy
      *
      * @return list<T>
      */
     public function findBy(array $criteria, ?array $orderBy = null, $limit = null, $offset = null): array
     {
-        return \array_values($this->inner()->findBy($this->normalize($criteria), $orderBy, $limit, $offset));
+        $objects = \array_values($this->inner()->findBy($this->normalize($criteria), $orderBy, $limit, $offset));
+
+        if (!$this instanceof ProxyRepositoryDecorator) {
+            Configuration::instance()->persistedObjectsTracker?->add(...$objects);
+        }
+
+        return $objects;
     }
 
     /**
@@ -135,7 +147,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
      */
     public function findOneBy(array $criteria): ?object
     {
-        return $this->inner()->findOneBy($this->normalize($criteria));
+        return $this->findBy($criteria, limit: 1)[0] ?? null;
     }
 
     public function getClassName(): string
@@ -155,7 +167,7 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
             return $inner->count($this->normalize($criteria));
         }
 
-        return \count($this->findBy($criteria));
+        return \count($this->inner()->findBy($criteria));
     }
 
     public function truncate(): void
@@ -181,14 +193,20 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
             $offset = \random_int(0, $count - 1);
         }
 
-        return $this->findBy($criteria, limit: 1, offset: $offset)[0];
+        $result = $this->findBy($criteria, limit: 1, offset: $offset);
+
+        if (!\count($result)) {
+            throw new NotEnoughObjects(\sprintf('At least %d "%s" object(s) must have been persisted (%d persisted).', 1, $this->getClassName(), 0));
+        }
+
+        return $result[0];
     }
 
     /**
      * @param positive-int $count
-     * @phpstan-param Parameters   $criteria
+     * @phpstan-param Parameters $criteria
      *
-     * @return list<T>
+     * @return non-empty-list<T>
      */
     public function randomSet(int $count, array $criteria = []): array
     {
@@ -202,9 +220,10 @@ class RepositoryDecorator implements ObjectRepository, \IteratorAggregate, \Coun
     /**
      * @param int<0, max> $min
      * @param int<0, max> $max
-     * @phpstan-param Parameters  $criteria
+     * @phpstan-param Parameters $criteria
      *
      * @return list<T>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T> : list<T>)
      */
     public function randomRange(int $min, int $max, array $criteria = []): array
     {

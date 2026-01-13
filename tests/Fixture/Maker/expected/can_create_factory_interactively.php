@@ -11,13 +11,13 @@
 
 namespace App\Factory;
 
-use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Entity\Contact;
 
 /**
- * @extends PersistentProxyObjectFactory<Contact>
+ * @extends PersistentObjectFactory<Contact>
  */
-final class ContactFactory extends PersistentProxyObjectFactory
+final class ContactFactory extends PersistentObjectFactory
 {
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -28,6 +28,7 @@ final class ContactFactory extends PersistentProxyObjectFactory
     {
     }
 
+    #[\Override]
     public static function class(): string
     {
         return Contact::class;
@@ -38,6 +39,7 @@ final class ContactFactory extends PersistentProxyObjectFactory
      *
      * @todo add your default values here
      */
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [
@@ -49,6 +51,7 @@ final class ContactFactory extends PersistentProxyObjectFactory
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#initialization
      */
+    #[\Override]
     protected function initialize(): static
     {
         return $this

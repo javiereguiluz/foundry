@@ -22,6 +22,13 @@ use Zenstruck\Foundry\Configuration;
  */
 abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
 {
+    public function __construct()
+    {
+        parent::__construct();
+
+        Configuration::triggerProxyDeprecation('Class PersistentProxyObjectFactory is deprecated and will be removed in Foundry 3.');
+    }
+
     /**
      * @return class-string<T>
      */
@@ -33,8 +40,12 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
      */
     final public function create(callable|array $attributes = []): object
     {
+        if (!\trait_exists(\Symfony\Component\VarExporter\LazyProxyTrait::class)) {
+            throw new \LogicException('PersistentProxyObjectFactory can no longer be used with Symfony 8. See https://github.com/zenstruck/foundry/blob/2.x/UPGRADE-2.7.md to get rid of Foundry\'s proxy mechanism, and upgrade to Symfony 8.');
+        }
+
         $configuration = Configuration::instance();
-        if ($configuration->inADataProvider()) {
+        if ($configuration->inADataProvider() && $this->isPersisting()) {
             return ProxyGenerator::wrapFactory($this, $attributes);
         }
 
@@ -78,7 +89,7 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
     }
 
     /**
-     * @return list<T&Proxy<T>>
+     * @return non-empty-list<T&Proxy<T>>
      */
     final public static function randomSet(int $count, array $criteria = []): array
     {
@@ -87,6 +98,7 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
 
     /**
      * @return list<T&Proxy<T>>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T&Proxy<T>> : list<T&Proxy<T>>)
      */
     final public static function randomRange(int $min, int $max, array $criteria = []): array
     {
@@ -95,6 +107,7 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
 
     /**
      * @return list<T&Proxy<T>>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T&Proxy<T>> : list<T&Proxy<T>>)
      */
     public static function randomRangeOrCreate(int $min, int $max, array $criteria = []): array
     {
@@ -151,6 +164,6 @@ abstract class PersistentProxyObjectFactory extends PersistentObjectFactory
     {
         Configuration::instance()->assertPersistenceEnabled();
 
-        return new ProxyRepositoryDecorator(static::class(), Configuration::instance()->isInMemoryEnabled()); // @phpstan-ignore argument.type, return.type
+        return new ProxyRepositoryDecorator(static::class(), Configuration::instance()->isInMemoryEnabled()); // @phpstan-ignore return.type
     }
 }

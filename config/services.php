@@ -1,5 +1,14 @@
 <?php
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
 use Faker;
@@ -8,7 +17,7 @@ use Zenstruck\Foundry\FactoryRegistry;
 use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\StoryRegistry;
 
-return static function (ContainerConfigurator $container): void {
+return static function(ContainerConfigurator $container): void {
     $container->services()
         ->set('.zenstruck_foundry.faker', Faker\Generator::class)
         ->factory([Faker\Factory::class, 'create'])
@@ -35,6 +44,9 @@ return static function (ContainerConfigurator $container): void {
             param('zenstruck_foundry.persistence.flush_once'),
             '%env(default:zenstruck_foundry.faker.seed:int:FOUNDRY_FAKER_SEED)%',
             service('.zenstruck_foundry.in_memory.repository_registry'),
+            service('.foundry.persistence.objects_tracker')->nullOnInvalid(),
+            param('zenstruck_foundry.enable_auto_refresh_with_lazy_objects'),
+            service('event_dispatcher')->nullOnInvalid(),
         ])
         ->public()
     ;

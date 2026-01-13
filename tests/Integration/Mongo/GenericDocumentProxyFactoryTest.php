@@ -12,6 +12,7 @@
 namespace Zenstruck\Foundry\Tests\Integration\Mongo;
 
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Document\DocumentWithReadonly;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Document\GenericProxyDocumentFactory;
@@ -24,6 +25,7 @@ use function Zenstruck\Foundry\Persistence\proxy_factory;
  * @author Kevin Bond <kevinbond@gmail.com>
  */
 #[IgnoreDeprecations]
+#[RequiresMethod(\Symfony\Component\VarExporter\LazyProxyTrait::class, 'createLazyProxy')]
 final class GenericDocumentProxyFactoryTest extends GenericProxyFactoryTestCase
 {
     use RequiresMongo;

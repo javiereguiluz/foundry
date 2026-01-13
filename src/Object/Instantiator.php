@@ -35,8 +35,8 @@ final class Instantiator
     /**
      * @template T of object
      *
-     * @phpstan-param Parameters $parameters
      * @param class-string<T> $class
+     * @phpstan-param Parameters $parameters
      *
      * @return T
      */
@@ -114,8 +114,8 @@ final class Instantiator
     /**
      * @template T of object
      *
-     * @phpstan-param Parameters $parameters
      * @param class-string<T> $class
+     * @phpstan-param Parameters $parameters
      *
      * @return T
      */

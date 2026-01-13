@@ -21,6 +21,7 @@ use Zenstruck\Foundry\Factory;
 use Zenstruck\Foundry\FactoryCollection;
 use Zenstruck\Foundry\Object\Hydrator;
 use Zenstruck\Foundry\ObjectFactory;
+use Zenstruck\Foundry\Persistence\Event\AfterPersist;
 use Zenstruck\Foundry\Persistence\Exception\NotEnoughObjects;
 use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
 use Zenstruck\Foundry\Persistence\Relationship\ManyToOneRelationship;
@@ -41,15 +42,19 @@ use function Zenstruck\Foundry\set;
  */
 abstract class PersistentObjectFactory extends ObjectFactory
 {
+    public const PRIORITY_SCHEDULE_FOR_INSERT = -10;
+
     private PersistMode $persist = PersistMode::PERSIST;
 
-    /** @phpstan-var list<callable(T, Parameters, static):void> */
+    /** @phpstan-var array<int, list<callable(T, Parameters, static):void|callable(T, Parameters, static):bool>> */
     private array $afterPersist = [];
 
     /** @var list<callable(T):void> */
-    private array $tempAfterInstantiate = [];
+    private array $inverseRelationshipCallbacks = [];
 
     private bool $isRootFactory = true;
+
+    private ?bool $autorefreshEnabled = null;
 
     /**
      * @phpstan-param mixed|Parameters $criteriaOrId
@@ -95,9 +100,9 @@ abstract class PersistentObjectFactory extends ObjectFactory
 
     /**
      * @param positive-int $count
-     * @phpstan-param Parameters   $criteria
+     * @phpstan-param Parameters $criteria
      *
-     * @return list<T>
+     * @return non-empty-list<T>
      */
     public static function randomSet(int $count, array $criteria = []): array
     {
@@ -107,9 +112,10 @@ abstract class PersistentObjectFactory extends ObjectFactory
     /**
      * @param int<0, max> $min
      * @param int<0, max> $max
-     * @phpstan-param Parameters  $criteria
+     * @phpstan-param Parameters $criteria
      *
      * @return list<T>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T> : list<T>)
      */
     public static function randomRange(int $min, int $max, array $criteria = []): array
     {
@@ -119,9 +125,10 @@ abstract class PersistentObjectFactory extends ObjectFactory
     /**
      * @param int<0, max> $min
      * @param int<0, max> $max
-     * @phpstan-param Parameters  $criteria
+     * @phpstan-param Parameters $criteria
      *
      * @return list<T>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T> : list<T>)
      */
     public static function randomRangeOrCreate(int $min, int $max, array $criteria = []): array
     {
@@ -229,21 +236,23 @@ abstract class PersistentObjectFactory extends ObjectFactory
      */
     public function create(callable|array $attributes = []): object
     {
-        $object = parent::create($attributes);
+        $configuration = Configuration::instance();
 
-        foreach ($this->tempAfterInstantiate as $callback) {
-            $callback($object);
+        if ($configuration->inADataProvider()
+            && \PHP_VERSION_ID >= 80400
+            && $this->isPersisting()
+            && !$this instanceof PersistentProxyObjectFactory
+        ) {
+            return ProxyGenerator::wrapFactoryNativeProxy($this, $attributes);
         }
 
-        $this->tempAfterInstantiate = [];
+        $object = parent::create($attributes);
 
         $this->throwIfCannotCreateObject();
 
         if (PersistMode::PERSIST !== $this->persistMode()) {
             return $object;
         }
-
-        $configuration = Configuration::instance();
 
         if ($configuration->flushOnce && !$this->isRootFactory) {
             return $object;
@@ -274,6 +283,30 @@ abstract class PersistentObjectFactory extends ObjectFactory
         return $clone;
     }
 
+    final public function withAutorefresh(): static
+    {
+        if (\PHP_VERSION_ID < 80400) {
+            throw new \LogicException('Auto-refresh requires PHP 8.4 or higher.');
+        }
+
+        $clone = clone $this;
+        $clone->autorefreshEnabled = true;
+
+        return $clone;
+    }
+
+    final public function withoutAutorefresh(): static
+    {
+        if (\PHP_VERSION_ID < 80400) {
+            throw new \LogicException('Auto-refresh requires PHP 8.4 or higher.');
+        }
+
+        $clone = clone $this;
+        $clone->autorefreshEnabled = false;
+
+        return $clone;
+    }
+
     /**
      * @internal
      */
@@ -286,12 +319,19 @@ abstract class PersistentObjectFactory extends ObjectFactory
     }
 
     /**
-     * @phpstan-param callable(T, Parameters, static):void $callback
+     * @phpstan-param callable(T, Parameters, static):void|callable(T, Parameters, static):bool $callback return value tells if a flush should be performed after the callback
      */
-    final public function afterPersist(callable $callback): static
+    final public function afterPersist(callable $callback, int $priority = 0): static
     {
         $clone = clone $this;
-        $clone->afterPersist[] = $callback;
+
+        $afterPersist = $clone->afterPersist;
+
+        $afterPersist[$priority] ??= [];
+        $afterPersist[$priority][] = $callback;
+        \krsort($afterPersist);
+
+        $clone->afterPersist = $afterPersist;
 
         return $clone;
     }
@@ -320,10 +360,18 @@ abstract class PersistentObjectFactory extends ObjectFactory
         return $clone;
     }
 
+    /**
+     * @internal
+     */
+    public function isAutorefreshEnabled(): bool
+    {
+        return $this->autorefreshEnabled ??= Configuration::autoRefreshWithLazyObjectsIsEnabled();
+    }
+
     protected function normalizeParameter(string $field, mixed $value): mixed
     {
         if (!Configuration::instance()->isPersistenceAvailable()) {
-            return unproxy(parent::normalizeParameter($field, $value));
+            return ProxyGenerator::unwrap(parent::normalizeParameter($field, $value));
         }
 
         if ($value instanceof self) {
@@ -347,22 +395,22 @@ abstract class PersistentObjectFactory extends ObjectFactory
                 ;
 
                 if (($fieldType = (new \ReflectionClass(static::class()))->getProperty($field)->getType())?->allowsNull()) {
-                    $this->tempAfterInstantiate[] = static function(object $object) use ($value, $inverseField, $field) {
+                    $this->inverseRelationshipCallbacks[] = static function(object $object) use ($value, $inverseField, $field) {
                         $inverseObject = $value->create([$inverseField => $object]);
 
-                        set($object, $field, unproxy($inverseObject, withAutoRefresh: false));
+                        set($object, $field, ProxyGenerator::unwrap($inverseObject, withAutoRefresh: false));
                     };
 
                     // we're using "force" here to avoid a potential type check in a setter
                     return force(null);
                 } elseif (($inverseFieldType = (new \ReflectionClass($value::class()))->getProperty($inverseField)->getType())?->allowsNull()) {
-                    $inverseObject = unproxy(
+                    $inverseObject = ProxyGenerator::unwrap(
                         // we're using "force" here to avoid a potential type check in a setter
                         $value->create([$inverseField => force(null)]),
                         withAutoRefresh: false
                     );
 
-                    $this->tempAfterInstantiate[] = static function(object $object) use ($inverseObject, $inverseField) {
+                    $this->inverseRelationshipCallbacks[] = static function(object $object) use ($inverseObject, $inverseField) {
                         set($inverseObject, $inverseField, $object);
                     };
 
@@ -375,7 +423,7 @@ abstract class PersistentObjectFactory extends ObjectFactory
             }
         }
 
-        return unproxy(parent::normalizeParameter($field, $value), withAutoRefresh: false);
+        return ProxyGenerator::unwrap(parent::normalizeParameter($field, $value), withAutoRefresh: false);
     }
 
     protected function normalizeCollection(string $field, FactoryCollection $collection): array
@@ -391,7 +439,7 @@ abstract class PersistentObjectFactory extends ObjectFactory
         $collection = $collection->notRootFactory();
 
         if ($inverseRelationshipMetadata instanceof OneToManyRelationship) {
-            $this->tempAfterInstantiate[] = function(object $object) use ($collection, $inverseRelationshipMetadata, $field) {
+            $this->inverseRelationshipCallbacks[] = function(object $object) use ($collection, $inverseRelationshipMetadata, $field) {
                 $inverseField = $inverseRelationshipMetadata->inverseField();
 
                 $inverseObjects = $collection
@@ -399,7 +447,7 @@ abstract class PersistentObjectFactory extends ObjectFactory
                     ->withPersistMode($this->isPersisting() ? PersistMode::NO_PERSIST_BUT_SCHEDULE_FOR_INSERT : PersistMode::WITHOUT_PERSISTING)
                     ->create([$inverseField => $object]);
 
-                $inverseObjects = unproxy($inverseObjects, withAutoRefresh: false);
+                $inverseObjects = ProxyGenerator::unwrap($inverseObjects, withAutoRefresh: false);
 
                 // if the collection is indexed by a field, index the array
                 if ($inverseRelationshipMetadata->collectionIndexedBy) {
@@ -428,7 +476,7 @@ abstract class PersistentObjectFactory extends ObjectFactory
     {
         $configuration = Configuration::instance();
 
-        $object = unproxy($object, withAutoRefresh: false);
+        $object = ProxyGenerator::unwrap($object, withAutoRefresh: false);
 
         if (!$configuration->isPersistenceAvailable()) {
             return $object;
@@ -443,13 +491,13 @@ abstract class PersistentObjectFactory extends ObjectFactory
         $inverseRelationship = $persistenceManager->bidirectionalRelationshipMetadata(static::class(), $object::class, $field);
 
         if ($inverseRelationship instanceof OneToOneRelationship) {
-            $this->tempAfterInstantiate[] = static function(object $newObject) use ($object, $inverseRelationship) {
+            $this->inverseRelationshipCallbacks[] = static function(object $newObject) use ($object, $inverseRelationship) {
                 Hydrator::set($object, $inverseRelationship->inverseField(), $newObject, catchErrors: true);
             };
         }
 
         if ($inverseRelationship instanceof ManyToOneRelationship) {
-            $this->tempAfterInstantiate[] = static function(object $newObject) use ($object, $inverseRelationship) {
+            $this->inverseRelationshipCallbacks[] = static function(object $newObject) use ($object, $inverseRelationship) {
                 Hydrator::add($object, $inverseRelationship->inverseField(), $newObject);
             };
         }
@@ -468,15 +516,18 @@ abstract class PersistentObjectFactory extends ObjectFactory
 
         try {
             return $configuration->persistence()->refresh($object);
-        } catch (RefreshObjectFailed|VarExportLogicException) {
+        } catch (RefreshObjectFailed|VarExportLogicException) { // @phpstan-ignore catch.neverThrown (thrown by var exporter)
             return $object;
         }
     }
 
+    /**
+     * @internal
+     */
     final protected function initializeInternal(): static
     {
         // Schedule any new object for insert right after instantiation
-        return parent::initializeInternal()
+        $factory = parent::initializeInternal()
             ->afterInstantiate(
                 static function(object $object, array $parameters, PersistentObjectFactory $factoryUsed): void {
                     if (!$factoryUsed->isPersisting()) {
@@ -485,16 +536,42 @@ abstract class PersistentObjectFactory extends ObjectFactory
 
                     $afterPersistCallbacks = [];
 
-                    foreach ($factoryUsed->afterPersist as $afterPersist) {
-                        $afterPersistCallbacks[] = static function() use ($object, $afterPersist, $parameters, $factoryUsed): void {
-                            $afterPersist($object, $parameters, $factoryUsed);
+                    foreach (\array_merge(...$factoryUsed->afterPersist) as $afterPersist) {
+                        $afterPersistCallbacks[] = static function() use ($object, $afterPersist, $parameters, $factoryUsed): bool {
+                            // this condition is needed to avoid BC breaks: only avoid flush if the callback explicitly returns false
+                            return !(false === $afterPersist($object, $parameters, $factoryUsed));
                         };
                     }
 
                     Configuration::instance()->persistence()->scheduleForInsert($object, $afterPersistCallbacks);
-                }
+                },
+                self::PRIORITY_SCHEDULE_FOR_INSERT
             )
         ;
+
+        if (!Configuration::isBooted() || !Configuration::instance()->hasEventDispatcher()) {
+            return $factory;
+        }
+
+        return $factory->afterInstantiate(
+            static function(object $object, array $parameters, self $factoryUsed): void {
+                $tempAfterInstantiateCallbacks = $factoryUsed->inverseRelationshipCallbacks;
+                $factoryUsed->inverseRelationshipCallbacks = [];
+                foreach ($tempAfterInstantiateCallbacks as $tempAfterInstantiateCallback) {
+                    $tempAfterInstantiateCallback($object);
+                }
+            },
+            priority: 1000
+        )
+            ->afterPersist(
+                static function(object $object, array $parameters, self $factoryUsed): bool {
+                    Configuration::instance()->eventDispatcher()->dispatch(
+                        new AfterPersist($object, $parameters, $factoryUsed)
+                    );
+
+                    return false; // don't perform a flush after the hook
+                }
+            );
     }
 
     private function throwIfCannotCreateObject(): void
@@ -510,8 +587,8 @@ abstract class PersistentObjectFactory extends ObjectFactory
         }
 
         if (
-            !$configuration->isPersistenceAvailable()
-            || $this instanceof PersistentProxyObjectFactory
+            $this instanceof PersistentProxyObjectFactory
+            || !$this->isPersisting()
         ) {
             return;
         }

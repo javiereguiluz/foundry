@@ -13,6 +13,8 @@ declare(strict_types=1);
 
 namespace Zenstruck\Foundry\Tests\Integration\ForceFactoriesTraitUsage;
 
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\Attributes\RequiresPhpunit;
 use PHPUnit\Framework\Attributes\Test;
 
@@ -20,9 +22,11 @@ use function Zenstruck\Foundry\factory;
 use function Zenstruck\Foundry\Persistence\proxy;
 
 #[RequiresPhpunit('>=11.0')]
+#[IgnoreDeprecations]
 final class ClassExtendingBaseTestCaseUsingFactoriesTest extends KernelTestCaseWithFactoriesTraitBaseTestCase
 {
     #[Test]
+    #[RequiresMethod(\Symfony\Component\VarExporter\LazyProxyTrait::class, 'createLazyProxy')]
     public function not_using_foundry_should_not_throw(): void
     {
         $this->expectNotToPerformAssertions();

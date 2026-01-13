@@ -11,9 +11,10 @@
 
 namespace Zenstruck\Foundry;
 
+use Zenstruck\Foundry\Object\Event\AfterInstantiate;
+use Zenstruck\Foundry\Object\Event\BeforeInstantiate;
 use Zenstruck\Foundry\Object\Instantiator;
-
-use function Zenstruck\Foundry\Persistence\unproxy;
+use Zenstruck\Foundry\Persistence\ProxyGenerator;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -26,10 +27,10 @@ use function Zenstruck\Foundry\Persistence\unproxy;
  */
 abstract class ObjectFactory extends Factory
 {
-    /** @phpstan-var list<callable(Parameters, class-string<T>, static):Parameters> */
+    /** @phpstan-var array<int, list<callable(Parameters, class-string<T>, static):Parameters>> */
     private array $beforeInstantiate = [];
 
-    /** @phpstan-var list<callable(T, Parameters, static):void> */
+    /** @phpstan-var array<int, list<callable(T, Parameters, static):void>> */
     private array $afterInstantiate = [];
 
     /** @phpstan-var InstantiatorCallable|null */
@@ -50,7 +51,7 @@ abstract class ObjectFactory extends Factory
     {
         $parameters = $this->normalizeAttributes($attributes);
 
-        foreach ($this->beforeInstantiate as $hook) {
+        foreach (\array_merge(...$this->beforeInstantiate) as $hook) {
             $parameters = $hook($parameters, static::class(), $this);
 
             if (!\is_array($parameters)) {
@@ -63,7 +64,7 @@ abstract class ObjectFactory extends Factory
         /** @var T $object */
         $object = $instantiator($parameters, static::class());
 
-        foreach ($this->afterInstantiate as $hook) {
+        foreach (\array_merge(...$this->afterInstantiate) as $hook) {
             $hook($object, $parameters, $this);
         }
 
@@ -73,8 +74,8 @@ abstract class ObjectFactory extends Factory
     /**
      * @phpstan-param InstantiatorCallable $instantiator
      *
-     * @psalm-return static<T>
      * @phpstan-return static
+     * @psalm-return static<T>
      */
     final public function instantiateWith(callable $instantiator): static
     {
@@ -87,10 +88,17 @@ abstract class ObjectFactory extends Factory
     /**
      * @phpstan-param callable(Parameters, class-string<T>, static):Parameters $callback
      */
-    final public function beforeInstantiate(callable $callback): static
+    final public function beforeInstantiate(callable $callback, int $priority = 0): static
     {
         $clone = clone $this;
-        $clone->beforeInstantiate[] = $callback;
+
+        $beforeInstantiate = $clone->beforeInstantiate;
+
+        $beforeInstantiate[$priority] ??= [];
+        $beforeInstantiate[$priority][] = $callback;
+        \krsort($beforeInstantiate);
+
+        $clone->beforeInstantiate = $beforeInstantiate;
 
         return $clone;
     }
@@ -100,17 +108,24 @@ abstract class ObjectFactory extends Factory
      *
      * @phpstan-param callable(T, Parameters, static):void $callback
      */
-    public function afterInstantiate(callable $callback): static
+    public function afterInstantiate(callable $callback, int $priority = 0): static
     {
         $clone = clone $this;
-        $clone->afterInstantiate[] = $callback;
+
+        $afterInstantiate = $clone->afterInstantiate;
+
+        $afterInstantiate[$priority] ??= [];
+        $afterInstantiate[$priority][] = $callback;
+        \krsort($afterInstantiate);
+
+        $clone->afterInstantiate = $afterInstantiate;
 
         return $clone;
     }
 
     /**
-     * @psalm-return static<T>
      * @phpstan-return static
+     * @psalm-return static<T>
      */
     final public function reuse(object ...$objects): static
     {
@@ -121,7 +136,7 @@ abstract class ObjectFactory extends Factory
         $clone = clone $this;
 
         foreach ($objects as $object) {
-            $object = unproxy($object, withAutoRefresh: false);
+            $object = ProxyGenerator::unwrap($object, withAutoRefresh: false);
 
             if ($object instanceof Factory) {
                 throw new \InvalidArgumentException('Cannot reuse a factory.');
@@ -190,6 +205,33 @@ abstract class ObjectFactory extends Factory
         }
 
         return $attributes;
+    }
+
+    /**
+     * @internal
+     */
+    protected function initializeInternal(): static
+    {
+        if (!Configuration::isBooted() || !Configuration::instance()->hasEventDispatcher()) {
+            return $this;
+        }
+
+        return $this->beforeInstantiate(
+            static function(array $parameters, string $objectClass, self $usedFactory): array {
+                Configuration::instance()->eventDispatcher()->dispatch(
+                    $hook = new BeforeInstantiate($parameters, $objectClass, $usedFactory)
+                );
+
+                return $hook->parameters;
+            }
+        )
+            ->afterInstantiate(
+                static function(object $object, array $parameters, self $usedFactory): void {
+                    Configuration::instance()->eventDispatcher()->dispatch(
+                        new AfterInstantiate($object, $parameters, $usedFactory)
+                    );
+                }
+            );
     }
 
     /**

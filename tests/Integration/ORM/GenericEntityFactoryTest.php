@@ -11,9 +11,13 @@
 
 namespace Zenstruck\Foundry\Tests\Integration\ORM;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\EmptyConstructorFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\GenericEntityFactory;
+use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\GenericProxyEntityFactory;
+use Zenstruck\Foundry\Tests\Fixture\FoundryTestKernel;
+use Zenstruck\Foundry\Tests\Fixture\Model\GenericModel;
 use Zenstruck\Foundry\Tests\Integration\Persistence\GenericFactoryTestCase;
 use Zenstruck\Foundry\Tests\Integration\RequiresORM;
 
@@ -53,6 +57,76 @@ final class GenericEntityFactoryTest extends GenericFactoryTestCase
         enable_persisting();
 
         EmptyConstructorFactory::assert()->count(0);
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function it_throws_when_proxy_is_used_with_symfony_8(): void
+    {
+        if (FoundryTestKernel::canUseLegacyProxy()) {
+            self::markTestSkipped('Symfony 8+ required.');
+        }
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('PersistentProxyObjectFactory can no longer be used with Symfony 8');
+
+        GenericProxyEntityFactory::createOne();
+    }
+
+    /**
+     * @test
+     * @dataProvider afterPersistDecideFlushProvider
+     *
+     * @phpstan-ignore missingType.callable
+     */
+    #[Test]
+    #[DataProvider('afterPersistDecideFlushProvider')]
+    public function after_persist_callback_can_decide_if_flush_is_performed_afterwards(callable $callback, string $expected): void
+    {
+        static::factory()
+            ->afterPersist($callback)
+            ->create(['prop1' => 'foo']);
+
+        static::factory()::assert()->exists(['prop1' => $expected]);
+    }
+
+    public static function afterPersistDecideFlushProvider(): iterable
+    {
+        yield 'no return will flush' => [
+            function(GenericModel $object) {
+                $object->setProp1('bar');
+            },
+            'bar',
+        ];
+
+        yield 'return true will flush' => [
+            function(GenericModel $object) {
+                $object->setProp1('bar');
+
+                return true;
+            },
+            'bar',
+        ];
+
+        yield 'return something else than false will flush' => [
+            function(GenericModel $object) {
+                $object->setProp1('bar');
+
+                return $object;
+            },
+            'bar',
+        ];
+
+        yield 'return false will not flush' => [
+            function(GenericModel $object) {
+                $object->setProp1('bar');
+
+                return false;
+            },
+            'foo',
+        ];
     }
 
     protected static function factory(): GenericEntityFactory

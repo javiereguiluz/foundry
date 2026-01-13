@@ -12,8 +12,10 @@
 namespace Zenstruck\Foundry\Persistence;
 
 use Doctrine\Persistence\ObjectRepository;
+use Zenstruck\Assert;
 use Zenstruck\Foundry\AnonymousFactoryGenerator;
 use Zenstruck\Foundry\Configuration;
+use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
 
 /**
  * @template T of object
@@ -36,7 +38,9 @@ function repository(string $class): RepositoryDecorator
  */
 function proxy_repository(string $class): ProxyRepositoryDecorator
 {
-    return new ProxyRepositoryDecorator($class, Configuration::instance()->isInMemoryEnabled()); // @phpstan-ignore return.type, argument.type
+    Configuration::triggerProxyDeprecation('Function proxy_repository() is deprecated and will be removed in Foundry 3.');
+
+    return new ProxyRepositoryDecorator($class, Configuration::instance()->isInMemoryEnabled()); // @phpstan-ignore return.type
 }
 
 /**
@@ -66,6 +70,8 @@ function persistent_factory(string $class, array|callable $attributes = []): Per
  */
 function proxy_factory(string $class, array|callable $attributes = []): PersistentProxyObjectFactory
 {
+    Configuration::triggerProxyDeprecation('Function proxy_factory() is deprecated and will be removed in Foundry 3.');
+
     return AnonymousFactoryGenerator::create($class, PersistentProxyObjectFactory::class)::new($attributes);
 }
 
@@ -95,6 +101,8 @@ function persist(string $class, array|callable $attributes = []): object
  */
 function proxy(object $object): object
 {
+    Configuration::triggerProxyDeprecation('Function proxy() is deprecated and will be removed in Foundry 3.');
+
     return ProxyGenerator::wrap($object);
 }
 
@@ -109,6 +117,8 @@ function proxy(object $object): object
  */
 function unproxy(mixed $what, bool $withAutoRefresh = true): mixed
 {
+    Configuration::triggerProxyDeprecation('Function unproxy() is deprecated and will be removed in Foundry 3.');
+
     return ProxyGenerator::unwrap($what, $withAutoRefresh);
 }
 
@@ -130,10 +140,32 @@ function save(object $object): object
  * @param T $object
  *
  * @return T
+ *
+ * @throws RefreshObjectFailed
  */
 function refresh(object &$object): object
 {
     return Configuration::instance()->persistence()->refresh($object);
+}
+
+/**
+ * For refreshing all persistent objects created by Foundry, that are currently in use.
+ *
+ * @throws \BadMethodCallException if called with PHP <8.4
+ */
+function refresh_all(): void
+{
+    if (\PHP_VERSION_ID < 80400) {
+        throw new \BadMethodCallException('Cannot use refresh_all() before PHP 8.4.');
+    }
+
+    $objectsTracker = Configuration::instance()->persistedObjectsTracker;
+
+    if (null === $objectsTracker) {
+        throw new \BadMethodCallException('Cannot use refresh_all() if auto refresh with lazy objects is not enabled.');
+    }
+
+    $objectsTracker->refresh();
 }
 
 /**
@@ -176,11 +208,43 @@ function enable_persisting(): void
     Configuration::instance()->persistence()->enablePersisting();
 }
 
+function assert_persisted(object $object, string $message = '{entity} is not persisted.'): object
+{
+    Configuration::instance()->assertPersistenceEnabled();
+
+    Assert::that(
+        Configuration::instance()->persistence()->isPersisted($object)
+    )->isTrue($message, ['entity' => $object::class]);
+
+    return $object;
+}
+
+function assert_not_persisted(object $object, string $message = '{entity} is persisted.'): object
+{
+    Configuration::instance()->assertPersistenceEnabled();
+
+    Assert::that(
+        Configuration::instance()->persistence()->isPersisted($object)
+    )->isFalse($message, ['entity' => $object::class]);
+
+    return $object;
+}
+
 /**
  * @internal
  */
 function initialize_proxy_object(mixed $what): void
 {
+    if (
+        \PHP_VERSION_ID >= 80400
+        && \is_object($what)
+        && ($reflector = new \ReflectionClass($what))->isUninitializedLazyObject($what)
+    ) {
+        $reflector->initializeLazyObject($what);
+
+        return;
+    }
+
     match (true) {
         $what instanceof Proxy => $what->_initializeLazyObject(),
         \is_array($what) => \array_map(initialize_proxy_object(...), $what),

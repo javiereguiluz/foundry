@@ -16,8 +16,12 @@ use Doctrine\Persistence\ObjectManager;
 use Doctrine\Persistence\ObjectRepository;
 use Zenstruck\Foundry\Configuration;
 use Zenstruck\Foundry\Exception\PersistenceNotAvailable;
+use Zenstruck\Foundry\Object\Hydrator;
 use Zenstruck\Foundry\ORM\AbstractORMPersistenceStrategy;
+use Zenstruck\Foundry\ORM\DoctrineOrmVersionGuesser;
 use Zenstruck\Foundry\Persistence\Exception\NoPersistenceStrategy;
+use Zenstruck\Foundry\Persistence\Exception\ObjectHasUnsavedChanges;
+use Zenstruck\Foundry\Persistence\Exception\ObjectNoLongerExist;
 use Zenstruck\Foundry\Persistence\Exception\RefreshObjectFailed;
 use Zenstruck\Foundry\Persistence\Relationship\RelationshipMetadata;
 use Zenstruck\Foundry\Persistence\ResetDatabase\ResetDatabaseManager;
@@ -32,7 +36,7 @@ final class PersistenceManager
     private bool $flush = true;
     private bool $persist = true;
 
-    /** @var list<callable():void> */
+    /** @var list<callable():bool> */
     private array $afterPersistCallbacks = [];
 
     /**
@@ -76,9 +80,9 @@ final class PersistenceManager
         $om->persist($object);
         $this->flush($om);
 
-        $callbacksCalled = $this->callPostPersistCallbacks();
+        $shouldFlush = $this->callPostPersistCallbacks();
 
-        if ($callbacksCalled) {
+        if ($shouldFlush) {
             $this->flush($om);
         }
 
@@ -89,14 +93,14 @@ final class PersistenceManager
      * @template T of object
      *
      * @param T                     $object
-     * @param list<callable():void> $afterPersistCallbacks
+     * @param list<callable():bool> $afterPersistCallbacks
      *
      * @return T
      */
     public function scheduleForInsert(object $object, array $afterPersistCallbacks = []): object
     {
         if ($object instanceof Proxy) {
-            $object = unproxy($object);
+            $object = ProxyGenerator::unwrap($object);
         }
 
         $om = $this->strategyFor($object::class)->objectManagerFor($object::class);
@@ -144,10 +148,51 @@ final class PersistenceManager
      * @template T of object
      *
      * @param T $object
+     */
+    public function autorefresh(object $object, mixed $id, object $clone): void
+    {
+        $strategy = $this->strategyFor($object::class);
+        $om = $strategy->objectManagerFor($object::class);
+
+        if ($id) {
+            try {
+                $om->refresh($object);
+
+                if ($this->getIdentifierValues($object)) {
+                    // no identifier values means the object no longer exists
+                    return;
+                }
+            } catch (\Throwable $e) {
+            }
+
+            // let's detach the object, in order to prevent Doctrine cache
+            $om->detach($object);
+            if ($refreshedObject = $om->find($object::class, $id)) {
+                if (!DoctrineOrmVersionGuesser::isOrmV3()) {
+                    $this->refresh($refreshedObject, canThrow: false);
+                }
+
+                Hydrator::hydrateFromOtherObject($object, $refreshedObject);
+
+                return;
+            }
+        }
+
+        // the object no longer exists
+        Hydrator::hydrateFromOtherObject($object, $clone);
+        $om->detach($object);
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param T $object
      *
      * @return T
+     *
+     * @throws RefreshObjectFailed
      */
-    public function refresh(object &$object, bool $force = false): object
+    public function refresh(object &$object, bool $force = false, bool $canThrow = true): object
     {
         if (!$this->flush && !$force) {
             return $object;
@@ -157,10 +202,26 @@ final class PersistenceManager
             return $object->_refresh();
         }
 
+        if (
+            \PHP_VERSION_ID >= 80400
+            && ($reflector = new \ReflectionClass($object))->isUninitializedLazyObject($object)
+        ) {
+            /** @var T $object */
+            $object = $reflector->initializeLazyObject($object);
+        }
+
         $strategy = $this->strategyFor($object::class);
 
+        if ($strategy->isEmbeddable($object)) {
+            return $object;
+        }
+
         if ($strategy->hasChanges($object)) {
-            throw RefreshObjectFailed::objectHasUnsavedChanges($object::class);
+            if (!$canThrow) {
+                return $object;
+            }
+
+            throw new ObjectHasUnsavedChanges($object::class);
         }
 
         $om = $strategy->objectManagerFor($object::class);
@@ -177,32 +238,48 @@ final class PersistenceManager
             return $object;
         }
 
-        if ($strategy->isEmbeddable($object)) {
-            return $object;
+        $id = $strategy->getIdentifierValues($object);
+
+        if (!$id || !($objectFromDB = $om->find($object::class, $id))) {
+            if (!$canThrow) {
+                return $object;
+            }
+
+            throw new ObjectNoLongerExist($object);
         }
 
-        $id = $om->getClassMetadata($object::class)->getIdentifierValues($object);
-
-        if (!$id || !($object = $om->find($object::class, $id))) { // @phpstan-ignore parameterByRef.type
-            throw RefreshObjectFailed::objectNoLongExists();
-        }
+        $object = $objectFromDB;
 
         return $object;
     }
 
     public function isPersisted(object $object): bool
     {
+        if ($object instanceof Proxy) {
+            $object = $object->_real(withAutoRefresh: false);
+        }
+
+        if (
+            \PHP_VERSION_ID >= 80400
+            && ($reflector = new \ReflectionClass($object))->isUninitializedLazyObject($object)
+        ) {
+            /** @var object $object */
+            $object = $reflector->initializeLazyObject($object);
+        }
+
+        $persistenceStrategy = $this->strategyFor($object::class);
+
         // prevents doctrine to use its cache and think the object is persisted
-        if ($this->strategyFor($object::class)->isScheduledForInsert($object)) {
+        if ($persistenceStrategy->isScheduledForInsert($object)) {
             return false;
         }
 
         if ($object instanceof Proxy) {
-            $object = unproxy($object);
+            $object = ProxyGenerator::unwrap($object);
         }
 
-        $om = $this->strategyFor($object::class)->objectManagerFor($object::class);
-        $id = $om->getClassMetadata($object::class)->getIdentifierValues($object);
+        $om = $persistenceStrategy->objectManagerFor($object::class);
+        $id = $persistenceStrategy->getIdentifierValues($object);
 
         return $id && null !== $om->find($object::class, $id);
     }
@@ -232,7 +309,7 @@ final class PersistenceManager
      */
     public function truncate(string $class): void
     {
-        $class = unproxy($class);
+        $class = ProxyGenerator::unwrap($class);
 
         $this->strategyFor($class)->truncate($class);
     }
@@ -246,7 +323,7 @@ final class PersistenceManager
      */
     public function repositoryFor(string $class): ObjectRepository
     {
-        $class = unproxy($class);
+        $class = ProxyGenerator::unwrap($class);
 
         return $this->strategyFor($class)->objectManagerFor($class)->getRepository($class);
     }
@@ -257,8 +334,8 @@ final class PersistenceManager
      */
     public function bidirectionalRelationshipMetadata(string $parent, string $child, string $field): ?RelationshipMetadata
     {
-        $parent = unproxy($parent);
-        $child = unproxy($child);
+        $parent = ProxyGenerator::unwrap($parent);
+        $child = ProxyGenerator::unwrap($child);
 
         return $this->strategyFor($parent)->bidirectionalRelationshipMetadata($parent, $child, $field);
     }
@@ -307,10 +384,10 @@ final class PersistenceManager
      */
     public function embeddablePropertiesFor(object $object, string $owner): ?array
     {
-        $owner = unproxy($owner);
+        $owner = ProxyGenerator::unwrap($owner);
 
         try {
-            return $this->strategyFor($owner)->embeddablePropertiesFor(unproxy($object), $owner);
+            return $this->strategyFor($owner)->embeddablePropertiesFor(ProxyGenerator::unwrap($object), $owner);
         } catch (NoPersistenceStrategy) {
             return null;
         }
@@ -330,6 +407,11 @@ final class PersistenceManager
     public function resetDatabaseManager(): ResetDatabaseManager
     {
         return $this->resetDatabaseManager;
+    }
+
+    public function getIdentifierValues(object $object): mixed
+    {
+        return $this->strategyFor($object::class)->getIdentifierValues($object);
     }
 
     public static function isOrmOnly(): bool
@@ -368,11 +450,15 @@ final class PersistenceManager
         $afterPersistCallbacks = $this->afterPersistCallbacks;
         $this->afterPersistCallbacks = [];
 
+        $shouldFlush = false;
+
         foreach ($afterPersistCallbacks as $afterPersistCallback) {
-            $afterPersistCallback();
+            if ($afterPersistCallback()) {
+                $shouldFlush = true;
+            }
         }
 
-        return true;
+        return $shouldFlush;
     }
 
     /**

@@ -15,15 +15,19 @@ use Symfony\Component\Config\Definition\Configurator\DefinitionConfigurator;
 use Symfony\Component\DependencyInjection\ChildDefinition;
 use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Exception\LogicException;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use Zenstruck\Foundry\Attribute\AsFixture;
+use Zenstruck\Foundry\Attribute\AsFoundryHook;
 use Zenstruck\Foundry\DependencyInjection\AsFixtureStoryCompilerPass;
 use Zenstruck\Foundry\InMemory\DependencyInjection\InMemoryCompilerPass;
 use Zenstruck\Foundry\InMemory\InMemoryRepository;
 use Zenstruck\Foundry\Mongo\MongoResetter;
+use Zenstruck\Foundry\Object\Event\Event;
+use Zenstruck\Foundry\Object\Event\HookListenerFilter;
 use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\ORM\ResetDatabase\MigrateDatabaseResetter;
 use Zenstruck\Foundry\ORM\ResetDatabase\OrmResetter;
@@ -44,12 +48,20 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
 
     public function configure(DefinitionConfigurator $definition): void
     {
-        $definition->rootNode() // @phpstan-ignore method.notFound
+        $definition->rootNode()
             ->children()
                 ->booleanNode('auto_refresh_proxies')
                     ->info('Whether to auto-refresh proxies by default (https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#auto-refresh)')
                     ->defaultNull()
                     ->setDeprecated('zenstruck/foundry', '2.0', 'Since 2.0 auto_refresh_proxies defaults to true and this configuration has no effect.')
+                ->end()
+                ->booleanNode('enable_auto_refresh_with_lazy_objects')
+                    ->info('Enable auto-refresh using PHP 8.4 lazy objects (cannot be enabled if PHP < 8.4).')
+                    ->defaultNull()
+                    ->validate()
+                        ->ifTrue(fn(?bool $enableAutoRefreshWithLazyObjects): bool => $enableAutoRefreshWithLazyObjects && \PHP_VERSION_ID < 80400)
+                        ->thenInvalid('Cannot enable auto-refresh with lazy objects if not using at least PHP 8.4.')
+                    ->end()
                 ->end()
                 ->arrayNode('faker')
                     ->addDefaultsIfNotSet()
@@ -63,7 +75,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                         ->scalarNode('seed')
                             ->setDeprecated('zenstruck/foundry', '2.4', 'The "faker.seed" configuration is deprecated and will be removed in 3.0. Use environment variable "FOUNDRY_FAKER_SEED" instead.')
                             ->info('Random number generator seed to produce the same fake values every run.')
-                            ->example(1234)
+                            ->example('1234')
                             ->defaultNull()
                         ->end()
                         ->scalarNode('service')
@@ -228,7 +240,27 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
         $this->configureMakers($configurator, $container, $config);
         $this->configurePersistence($container, $configurator, $config);
         $this->configureInMemory($configurator, $container);
-        $this->configureFixturesStory($configurator, $container);
+        $this->configureFixturesStory($container);
+        $this->configureAutoRefreshWithLazyObjects($container, $config['enable_auto_refresh_with_lazy_objects'] ?? null);
+
+        $container->registerAttributeForAutoconfiguration(
+            AsFoundryHook::class,
+            // @phpstan-ignore argument.type
+            static function(ChildDefinition $definition, AsFoundryHook $attribute, \ReflectionMethod $reflector) {
+                if (1 !== \count($reflector->getParameters())
+                    || !$reflector->getParameters()[0]->getType()
+                    || !$reflector->getParameters()[0]->getType() instanceof \ReflectionNamedType
+                    || !\is_a($reflector->getParameters()[0]->getType()->getName(), Event::class, true)
+                ) {
+                    throw new LogicException(\sprintf("In order to use \"%s\" attribute, method \"{$reflector->class}::{$reflector->name}()\" must have a single parameter that is a subclass of \"%s\".", AsFoundryHook::class, Event::class));
+                }
+                $definition->addTag('foundry.hook', [
+                    'class' => $attribute->objectClass,
+                    'method' => $reflector->getName(),
+                    'event' => $reflector->getParameters()[0]->getType()->getName(),
+                ]);
+            }
+        );
     }
 
     public function build(ContainerBuilder $container): void
@@ -248,6 +280,21 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
                 ->getDefinition('.zenstruck_foundry.faker')
                 ->addMethodCall('addProvider', [new Reference($id)])
             ;
+        }
+
+        // events
+        $i = 0;
+        foreach ($container->findTaggedServiceIds('foundry.hook') as $id => $tags) {
+            foreach ($tags as $tag) {
+                $container
+                    ->setDefinition("foundry.hook.{$tag['event']}.{$i}", new Definition(class: HookListenerFilter::class))
+                    ->setArgument(0, [new Reference($id), $tag['method']])
+                    ->setArgument(1, $tag['class'])
+                    ->addTag('kernel.event_listener', ['event' => $tag['event']])
+                ;
+
+                ++$i;
+            }
         }
     }
 
@@ -389,7 +436,7 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
     /**
      * @param array<string, mixed> $ormConfig
      */
-    private function configureOrm(ContainerConfigurator $configurator, ContainerBuilder $container, $ormConfig): void
+    private function configureOrm(ContainerConfigurator $configurator, ContainerBuilder $container, array $ormConfig): void
     {
         $configurator->import('../config/orm.php');
 
@@ -430,18 +477,31 @@ final class ZenstruckFoundryBundle extends AbstractBundle implements CompilerPas
         $container->registerForAutoconfiguration(InMemoryRepository::class)->addTag('foundry.in_memory.repository');
     }
 
-    private function configureFixturesStory(ContainerConfigurator $configurator, ContainerBuilder $container): void
+    private function configureFixturesStory(ContainerBuilder $container): void
     {
         $container->registerAttributeForAutoconfiguration(
             AsFixture::class,
             // @phpstan-ignore argument.type
             static function(ChildDefinition $definition, AsFixture $attribute, \ReflectionClass $reflector) {
-                if (false === $reflector->getParentClass() || Story::class !== $reflector->getParentClass()->getName()) {
+                if (false === $reflector->isSubclassOf(Story::class)) {
                     throw new LogicException(\sprintf('Only stories can be marked with "%s" attribute, class "%s" is not a story.', AsFixture::class, $reflector->getName()));
                 }
 
                 $definition->addTag('foundry.story.fixture', ['name' => $attribute->name, 'groups' => $attribute->groups]);
             }
         );
+    }
+
+    private function configureAutoRefreshWithLazyObjects(ContainerBuilder $container, ?bool $enableAutoRefreshWithLazyObjects): void
+    {
+        $container->setParameter('zenstruck_foundry.enable_auto_refresh_with_lazy_objects', $enableAutoRefreshWithLazyObjects ?? false);
+
+        if (null === $enableAutoRefreshWithLazyObjects && \PHP_VERSION_ID >= 80400) {
+            trigger_deprecation('zenstruck/foundry', '2.7', 'Not setting a value for "zenstruck_foundry.enable_auto_refresh_with_lazy_objects" is deprecated. This option will be forced to true in 3.0.');
+        }
+
+        if ($container->has('.foundry.persistence.objects_tracker') && !$enableAutoRefreshWithLazyObjects) {
+            $container->removeDefinition('.foundry.persistence.objects_tracker');
+        }
     }
 }

@@ -1,12 +1,26 @@
 <?php
 
+/*
+ * This file is part of the zenstruck/foundry package.
+ *
+ * (c) Kevin Bond <kevinbond@gmail.com>
+ *
+ * For the full copyright and license information, please view the LICENSE
+ * file that was distributed with this source code.
+ */
+
 namespace Symfony\Component\DependencyInjection\Loader\Configurator;
 
-use Zenstruck\Foundry\Command\LoadStoryCommand;
+use Symfony\Component\Console\Event\ConsoleTerminateEvent;
+use Symfony\Component\HttpKernel\Event\TerminateEvent;
+use Symfony\Component\Messenger\Event\WorkerMessageHandledEvent;
+use Zenstruck\Foundry\Command\LoadFixturesCommand;
+use Zenstruck\Foundry\Persistence\Event\AfterPersist;
+use Zenstruck\Foundry\Persistence\PersistedObjectsTracker;
 use Zenstruck\Foundry\Persistence\PersistenceManager;
 use Zenstruck\Foundry\Persistence\ResetDatabase\ResetDatabaseManager;
 
-return static function (ContainerConfigurator $container): void {
+return static function(ContainerConfigurator $container): void {
     $container->services()
         ->set('.zenstruck_foundry.persistence_manager', PersistenceManager::class)
             ->args([
@@ -19,13 +33,22 @@ return static function (ContainerConfigurator $container): void {
                 tagged_iterator('.foundry.persistence.schema_resetter'),
             ])
 
-        ->set('.zenstruck_foundry.story.load_story-command', LoadStoryCommand::class)
+        ->set('.zenstruck_foundry.command.load_fixtures', LoadFixturesCommand::class)
             ->arg('$databaseResetters', tagged_iterator('.foundry.persistence.database_resetter'))
             ->arg('$kernel', service('kernel'))
             ->tag('console.command', [
-                'command' => 'foundry:load-stories',
-                'aliases' => ['foundry:load-fixtures', 'foundry:load-fixture', 'foundry:load-story'],
+                'command' => 'foundry:load-fixtures|foundry:load-stories|foundry:load-story',
                 'description' => 'Load stories which are marked with #[AsFixture] attribute.',
             ])
     ;
+
+    if (\PHP_VERSION_ID >= 80400) {
+        $container->services()->set('.foundry.persistence.objects_tracker', PersistedObjectsTracker::class)
+            ->tag('kernel.reset', ['method' => 'refresh'])
+            ->tag('kernel.event_listener', ['event' => TerminateEvent::class, 'method' => 'refresh'])
+            ->tag('kernel.event_listener', ['event' => ConsoleTerminateEvent::class, 'method' => 'refresh'])
+            ->tag('kernel.event_listener', ['event' => WorkerMessageHandledEvent::class, 'method' => 'refresh']) // @phpstan-ignore class.notFound
+            ->tag('foundry.hook', ['class' => null, 'method' => 'afterPersistHook', 'event' => AfterPersist::class])
+        ;
+    }
 };

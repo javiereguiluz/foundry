@@ -6,7 +6,7 @@ use Zenstruck\Foundry\ObjectFactory;
 
 use function PHPStan\Testing\assertType;
 
-class UserForObjectFactory
+final class UserForObjectFactory
 {
     public function __construct(
         public string $name
@@ -19,11 +19,13 @@ class UserForObjectFactory
  */
 final class UserObjectFactory extends ObjectFactory
 {
+    #[\Override]
     public static function class(): string
     {
         return UserForObjectFactory::class;
     }
 
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [];
@@ -41,9 +43,9 @@ $var = UserObjectFactory::new()->instantiateWith(Instantiator::withConstructor()
 $var = UserObjectFactory::new()->with()->create();
 
 // methods returning a list of objects
-/** @psalm-check-type-exact $var = list<UserForObjectFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForObjectFactory> */
 $var = UserObjectFactory::createMany(1);
-/** @psalm-check-type-exact $var = list<UserForObjectFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForObjectFactory> */
 $var = UserObjectFactory::createRange(1, 2);
 /** @psalm-check-type-exact $var = list<UserForObjectFactory> */
 $var = UserObjectFactory::createSequence([]);

@@ -22,47 +22,47 @@ use Doctrine\Persistence\ObjectRepository;
 interface Proxy
 {
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _enableAutoRefresh(): static;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _disableAutoRefresh(): static;
 
     /**
      * @param callable(static):void $callback
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _withoutAutoRefresh(callable $callback): static;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _save(): static;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _refresh(): static;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _delete(): static;
 
     public function _get(string $property): mixed;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _set(string $property, mixed $value): static;
 
@@ -72,14 +72,14 @@ interface Proxy
     public function _real(bool $withAutoRefresh = true): object;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _assertPersisted(string $message = '{entity} is not persisted.'): static;
 
     /**
-     * @psalm-return T&Proxy<T>
      * @phpstan-return static
+     * @psalm-return T&Proxy<T>
      */
     public function _assertNotPersisted(string $message = '{entity} is persisted but it should not be.'): static;
 

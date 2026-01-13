@@ -7,7 +7,7 @@ use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
 use Zenstruck\Foundry\Persistence\Proxy;
 use Zenstruck\Foundry\Persistence\ProxyRepositoryDecorator;
 
-class UserForProxyFactory
+final class UserForProxyFactory
 {
     public function __construct(
         public string $name
@@ -19,11 +19,13 @@ class UserForProxyFactory
  */
 final class UserProxyFactory extends PersistentProxyObjectFactory
 {
+    #[\Override]
     public static function class(): string
     {
         return UserForProxyFactory::class;
     }
 
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [];
@@ -63,7 +65,7 @@ $var = UserProxyFactory::createRange(1, 2);
 $var = UserProxyFactory::createSequence([]);
 /** @psalm-check-type-exact $var = list<UserForProxyFactory&Proxy<UserForProxyFactory>> */
 $var = UserProxyFactory::randomRange(1, 2);
-/** @psalm-check-type-exact $var = list<UserForProxyFactory&Proxy<UserForProxyFactory>> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForProxyFactory&Proxy<UserForProxyFactory>> */
 $var = UserProxyFactory::randomRangeOrCreate(1, 2);
 /** @psalm-check-type-exact $var = list<UserForProxyFactory&Proxy<UserForProxyFactory>> */
 $var = UserProxyFactory::randomSet(2);

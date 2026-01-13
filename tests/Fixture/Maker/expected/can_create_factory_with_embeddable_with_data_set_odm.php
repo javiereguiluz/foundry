@@ -11,13 +11,13 @@
 
 namespace App\Factory;
 
-use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Document\WithEmbeddableDocument;
 
 /**
- * @extends PersistentProxyObjectFactory<WithEmbeddableDocument>
+ * @extends PersistentObjectFactory<WithEmbeddableDocument>
  */
-final class WithEmbeddableDocumentFactory extends PersistentProxyObjectFactory
+final class WithEmbeddableDocumentFactory extends PersistentObjectFactory
 {
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -28,6 +28,7 @@ final class WithEmbeddableDocumentFactory extends PersistentProxyObjectFactory
     {
     }
 
+    #[\Override]
     public static function class(): string
     {
         return WithEmbeddableDocument::class;
@@ -38,6 +39,7 @@ final class WithEmbeddableDocumentFactory extends PersistentProxyObjectFactory
      *
      * @todo add your default values here
      */
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [
@@ -48,6 +50,7 @@ final class WithEmbeddableDocumentFactory extends PersistentProxyObjectFactory
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#initialization
      */
+    #[\Override]
     protected function initialize(): static
     {
         return $this

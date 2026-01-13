@@ -490,7 +490,7 @@ abstract class GenericFactoryTestCase extends KernelTestCase
         $assert->empty();
         $assert->empty(['prop1' => 'a']);
 
-        static::factory()::createOne(['prop1' => 'a']);
+        $object = static::factory()::createOne(['prop1' => 'a']);
         static::factory()::createOne(['prop1' => 'b']);
         static::factory()::createOne(['prop1' => 'b']);
 
@@ -508,6 +508,9 @@ abstract class GenericFactoryTestCase extends KernelTestCase
         $assert->countLessThanOrEqual(2, ['prop1' => 'b']);
         $assert->exists(['prop1' => 'a']);
         $assert->notExists(['prop1' => 'c']);
+
+        $assert->exists($object->id);
+        $assert->notExists(999);
     }
 
     /**
@@ -708,6 +711,43 @@ abstract class GenericFactoryTestCase extends KernelTestCase
         foreach ($objects as $object) {
             self::assertSame((string) $object->id, $object->getProp1());
         }
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function can_use_priorities_in_hooks(): void
+    {
+        $object = $this->factory()
+            ->beforeInstantiate(function(array $attributes) {
+                $attributes['prop1'] = ($attributes['prop1'] ?? '').'3';
+
+                return $attributes;
+            })
+            ->beforeInstantiate(function(array $attributes) {
+                $attributes['prop1'] = ($attributes['prop1'] ?? '').'2';
+
+                return $attributes;
+            }, priority: 1)
+            ->afterInstantiate(function(GenericModel $object) {
+                $object->setProp1("{$object->getProp1()}5");
+            })
+            ->afterInstantiate(function(GenericModel $object) {
+                $object->setProp1("{$object->getProp1()}4");
+            }, priority: 1)
+            ->afterPersist(function(GenericModel $object) {
+                $object->setProp1("{$object->getProp1()}7");
+            })
+            ->afterPersist(function(GenericModel $object) {
+                $object->setProp1("{$object->getProp1()}6");
+            }, priority: 1)
+            ->create(['prop1' => '1']);
+
+        $this->assertSame('1234567', $object->getProp1());
+
+        refresh($object);
+        $this->assertSame('1234567', $object->getProp1());
     }
 
     /**

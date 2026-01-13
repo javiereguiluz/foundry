@@ -7,7 +7,7 @@ use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 
 use Zenstruck\Foundry\Persistence\RepositoryDecorator;
 
-class UserForPersistentFactory
+final class UserForPersistentFactory
 {
     public function __construct(
         public string $name
@@ -19,11 +19,13 @@ class UserForPersistentFactory
  */
 final class UserFactory extends PersistentObjectFactory
 {
+    #[\Override]
     public static function class(): string
     {
         return UserForPersistentFactory::class;
     }
 
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [];
@@ -55,15 +57,15 @@ $var = UserFactory::new()->with()->create();
 // methods returning a list of objects
 /** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
 $var = UserFactory::all();
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = UserFactory::createMany(1);
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = UserFactory::createRange(1, 2);
 /** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
 $var = UserFactory::createSequence([]);
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = UserFactory::randomRange(1, 2);
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = UserFactory::randomSet(2);
 /** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
 $var = UserFactory::findBy(['name' => 'foo']);
@@ -108,9 +110,9 @@ $var = $repository->random();
 $var = $repository->findAll();
 /** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
 $var = $repository->findBy([]);
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = $repository->randomSet(2);
-/** @psalm-check-type-exact $var = list<UserForPersistentFactory> */
+/** @psalm-check-type-exact $var = non-empty-list<UserForPersistentFactory> */
 $var = $repository->randomRange(1, 2);
 /** @psalm-check-type-exact $var = int */
 $var = $repository->count();

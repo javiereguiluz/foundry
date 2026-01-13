@@ -17,8 +17,6 @@ use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\MappingException;
 use PHPUnit\Framework\Attributes\Before;
 use PHPUnit\Framework\Attributes\DataProvider;
-use PHPUnit\Metadata\Version\ConstraintRequirement;
-use PHPUnit\Runner\Version as PHPunitVersion;
 use Psr\Cache\CacheItemPoolInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Configuration;
@@ -49,7 +47,7 @@ trait ChangesEntityRelationshipCascadePersist
             throw new \LogicException('Cannot use trait "ChangesEntityRelationshipCascadePersist" without KernelTestCase.');
         }
 
-        $testMethod = new \ReflectionMethod(static::class, $this->name());
+        $testMethod = new \ReflectionMethod(static::class, $this->name()); // @phpstan-ignore method.internal
         $usingRelationshipsAttributes = $testMethod->getAttributes(UsingRelationships::class);
 
         if (!$usingRelationshipsAttributes) {
@@ -63,7 +61,7 @@ trait ChangesEntityRelationshipCascadePersist
 
         /** @var ChangeCascadePersistOnLoadClassMetadataListener $changeCascadePersistListener */
         $changeCascadePersistListener = self::getContainer()->get(ChangeCascadePersistOnLoadClassMetadataListener::class);
-        $changeCascadePersistListener->withMetadata(\array_values($this->providedData()));
+        $changeCascadePersistListener->withMetadata(\array_values($this->providedData())); // @phpstan-ignore method.internal
 
         /** @var CacheItemPoolInterface $doctrineMetadataCache */
         $doctrineMetadataCache = self::getContainer()->get('doctrine.orm.default_metadata_cache');
@@ -75,13 +73,14 @@ trait ChangesEntityRelationshipCascadePersist
      */
     public static function provideCascadeRelationshipsCombinations(): iterable
     {
-        if (ConstraintRequirement::from('>=12')->isSatisfiedBy(PHPunitVersion::id())) {
+        // paratest does not still provide option --do-not-fail-on-phpunit-warning
+        // so we need to skip all relationships permutations for paratest
+        if (isset($_ENV['PARATEST'])) {
             yield []; // @phpstan-ignore generator.valueType
 
             return;
         }
 
-        // @phpstan-ignore deadCode.unreachable
         if (!\getenv('DATABASE_URL') || !self::$methodName) {
             // this test requires the ORM, but trait RequiresORM is analysed after data provider are called
             // then we need to return at least one empty array to avoid an error

@@ -15,6 +15,7 @@ use Doctrine\Persistence\Proxy as DoctrineProxy;
 use Symfony\Component\VarExporter\LazyObjectInterface;
 use Symfony\Component\VarExporter\LazyProxyTrait;
 use Symfony\Component\VarExporter\ProxyHelper;
+use Zenstruck\Foundry\Configuration;
 use Zenstruck\Foundry\Factory;
 
 /**
@@ -56,7 +57,38 @@ final class ProxyGenerator
      */
     public static function wrapFactory(PersistentProxyObjectFactory $factory, callable|array $attributes): Proxy
     {
-        return self::generateClassFor($factory)::createLazyProxy(static fn() => unproxy($factory->create($attributes))); // @phpstan-ignore-line
+        return self::generateClassFor($factory)::createLazyProxy(static function() use ($factory, $attributes) { // @phpstan-ignore staticMethod.notFound
+            if (Configuration::instance()->inADataProvider() && $factory->isPersisting()) {
+                throw new \LogicException('Cannot access to a persisted object from a data provider.');
+            }
+
+            return self::unwrap($factory->create($attributes));
+        });
+    }
+
+    /**
+     * @template T of object
+     *
+     * @param PersistentObjectFactory<T> $factory
+     * @phpstan-param Attributes $attributes
+     *
+     * @return T
+     */
+    public static function wrapFactoryNativeProxy(PersistentObjectFactory $factory, callable|array $attributes): object
+    {
+        if (\PHP_VERSION_ID < 80400) {
+            throw new \LogicException('Native proxy generation requires PHP 8.4 or higher.');
+        }
+
+        $reflector = new \ReflectionClass($factory::class());
+
+        return $reflector->newLazyProxy(static function() use ($factory, $attributes) {
+            if (Configuration::instance()->inADataProvider() && $factory->isPersisting()) {
+                throw new \LogicException('Cannot access to a persisted object from a data provider.');
+            }
+
+            return $factory->create($attributes);
+        });
     }
 
     /**
@@ -78,6 +110,14 @@ final class ProxyGenerator
 
         if ($what instanceof Proxy) {
             return $what->_real($withAutoRefresh); // @phpstan-ignore return.type
+        }
+
+        if (
+            \PHP_VERSION_ID >= 80400
+            && \is_object($what)
+            && ($reflector = new \ReflectionClass($what))->isUninitializedLazyObject($what)
+        ) {
+            return $reflector->initializeLazyObject($what);
         }
 
         return $what;
@@ -124,16 +164,17 @@ final class ProxyGenerator
          * Add `$this->_autoRefresh();` after every method declaration.
          *
          * (\s*                                 # 1. Optional indentation
-         * (?:public|protected|private)?\s*     # 2. Optional visibility
-         * function\s+                          # 3. The "function" keyword followed by space
-         * (?!__)                               # 4. Negative lookahead to exclude magic methods (like __serialize)
-         * \w+                                  # 5. Method name
-         * \s*\([^\)]*\)\s*                     # 6. Parameters inside parentheses (not captured)
-         * ):?\s*\??[\w\\\\]*                   # 7. Optional return type, can be nullable (starts with `?`), supports namespaced types (`\Foo\Bar`)
-         * \s*\{\s*$                            # 8. Opening brace `{` at the end of the line, with optional spaces before
+         * (?:#\[\\\ReturnTypeWillChange\]\s*)? # 2. Optional ReturnTypeWillChange attribute (This gets added by the ProxyHelper)
+         * (?:public|protected|private)?\s*     # 3. Optional visibility
+         * function\s+                          # 4. The "function" keyword followed by space
+         * (?!__)                               # 5. Negative lookahead to exclude magic methods (like __serialize)
+         * \w+                                  # 6. Method name
+         * \s*\([^\)]*\)\s*                     # 7. Parameters inside parentheses (not captured)
+         * ):?\s*\??[\w\\\\|&]*                 # 8. Optional return type, can be nullable (starts with `?`), supports namespaced types (`\Foo\Bar`), union types and intersection types
+         * \s*\{\s*$                            # 9. Opening brace `{` at the end of the line, with optional spaces before
          */
         $proxyCode = \preg_replace_callback(
-            '/^(\s*(?:public|protected|private)?\s*function\s+(?!__)\w+\s*\([^\)]*\)\s*):?\s*\??[\w\\\\]*\s*\{\s*$/m',
+            '/^(\s*(?:#\[\\\ReturnTypeWillChange\]\s*)?(?:public|protected|private)?\s*function\s+(?!__)\w+\s*\([^\)]*\)\s*):?\s*\??[\w\\\\|&]*\s*\{\s*$/m',
             fn($matches) => \rtrim($matches[0])."\n    \$this->_autoRefresh();",
             $proxyCode
         );

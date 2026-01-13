@@ -12,6 +12,7 @@
 namespace Zenstruck\Foundry\Persistence;
 
 use Doctrine\Persistence\ObjectRepository;
+use Zenstruck\Foundry\Configuration;
 
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
@@ -22,6 +23,18 @@ use Doctrine\Persistence\ObjectRepository;
  */
 final class ProxyRepositoryDecorator extends RepositoryDecorator
 {
+    /**
+     * @internal
+     *
+     * @param class-string<T> $class
+     */
+    public function __construct(string $class, bool $inMemory = false)
+    {
+        Configuration::triggerProxyDeprecation('Class ProxyRepositoryDecorator is deprecated and will be removed in Foundry 3.');
+
+        parent::__construct($class, $inMemory); // @phpstan-ignore argument.type
+    }
+
     /**
      * @return T|Proxy<T>|null
      * @psalm-return (T&Proxy<T>)|null

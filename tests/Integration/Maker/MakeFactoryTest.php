@@ -13,6 +13,8 @@ namespace Zenstruck\Foundry\Tests\Integration\Maker;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RequiresPhp;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\MakerBundle\Exception\RuntimeCommandException;
@@ -32,8 +34,10 @@ use Zenstruck\Foundry\Tests\Fixture\ObjectWithNonWriteable;
 /**
  * @author Kevin Bond <kevinbond@gmail.com>
  * @group maker
+ * @requires PHP >=8.4
  */
 #[Group('maker')]
+#[RequiresPhp('>=8.4')]
 final class MakeFactoryTest extends MakerTestCase
 {
     private const PHPSTAN_PATH = __DIR__.'/../../..'.FactoryGenerator::PHPSTAN_PATH;
@@ -50,11 +54,11 @@ final class MakeFactoryTest extends MakerTestCase
     {
         parent::tearDown();
 
-        $removeSCAMock = static function(string $file): void {
+        $removeSCAMock = function(string $file): void {
             if (\file_exists($file)) {
                 \unlink($file);
-                \rmdir(\dirname($file));
-                \rmdir(\dirname($file, 2));
+                $this->rrmdir(\dirname($file));
+                $this->rrmdir(\dirname($file, 2));
             }
         };
         $removeSCAMock(self::PHPSTAN_PATH);
@@ -154,6 +158,7 @@ final class MakeFactoryTest extends MakerTestCase
      */
     #[Test]
     #[DataProvider('scaToolProvider')]
+    #[IgnoreDeprecations]
     public function can_create_factory_with_static_analysis_annotations(string $scaTool): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -182,6 +187,7 @@ final class MakeFactoryTest extends MakerTestCase
      * @test
      */
     #[Test]
+    #[IgnoreDeprecations]
     public function can_create_factory_for_entity_with_repository(): void
     {
         if (!\getenv('DATABASE_URL')) {
@@ -517,5 +523,33 @@ final class MakeFactoryTest extends MakerTestCase
     private function makeFactoryCommandTester(array $options = []): CommandTester
     {
         return new CommandTester((new Application(self::bootKernel($options)))->find('make:factory'));
+    }
+
+    /**
+     * Recursively remove a directory.
+     * @see https://stackoverflow.com/questions/1653771/how-do-i-remove-a-directory-that-is-not-empty
+     */
+    private function rrmdir(string $dir): void
+    {
+        if (\is_dir($dir)) {
+            $objects = \scandir($dir);
+
+            if (false === $objects) {
+                return;
+            }
+
+            foreach ($objects as $object) {
+                if ('.' !== $object && '..' !== $object) {
+                    if ('dir' === \filetype($dir.'/'.$object)) {
+                        $this->rrmdir($dir.'/'.$object);
+                    } else {
+                        \unlink($dir.'/'.$object);
+                    }
+                }
+            }
+
+            \reset($objects);
+            \rmdir($dir);
+        }
     }
 }

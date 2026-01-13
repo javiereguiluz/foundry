@@ -131,14 +131,13 @@ This command will generate a ``PostFactory`` class that looks like this:
 
     use App\Entity\Post;
     use App\Repository\PostRepository;
-    use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
-    use Zenstruck\Foundry\Persistence\Proxy;
+    use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
     use Zenstruck\Foundry\Persistence\ProxyRepositoryDecorator;
 
     /**
-     * @extends PersistentProxyObjectFactory<Post>
+     * @extends PersistentObjectFactory<Post>
      */
-    final class PostFactory extends PersistentProxyObjectFactory
+    final class PostFactory extends PersistentObjectFactory
     {
         /**
          * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -184,8 +183,18 @@ This command will generate a ``PostFactory`` class that looks like this:
 
 .. tip::
 
-    You can also inherit from ``Zenstruck\Foundry\Persistence\PersistentObjectFactory``. Which will create regular objects
-    without proxy (see :ref:`Proxy object section <object-proxy>` for more information).
+    When using ``--test`` flag, we're still dealing with ``dev`` environment. And because we want the container to know about our factories,
+    we need to declare them as services even if they are in the ``tests`` directory. To do that, add the following to your configuration:
+
+    .. code-block:: yaml
+
+        # config/packages/zenstruck_foundry.yaml
+        when@dev:
+            services:
+                App\Tests\Factory\:
+                    resource: '%kernel.project_dir%/tests/Factory/'
+                    autowire: true
+                    autoconfigure: true
 
 .. tip::
 
@@ -214,53 +223,6 @@ This command will generate a ``PostFactory`` class that looks like this:
             zenstruck_foundry:
                 make_factory:
                     add_hints: false
-
-.. note::
-
-    You can add the option ``--with-phpdoc`` in order to add the following ``@method`` docblocks.
-    This would ease autocompletion in your IDE (might be not useful anymore since Foundry v2, at least in PHPStorm):
-
-::
-
-        /**
-         * @method        Post|Proxy create(array|callable $attributes = [])
-         * @method static Post|Proxy createOne(array $attributes = [])
-         * @method static Post|Proxy find(object|array|mixed $criteria)
-         * @method static Post|Proxy findOrCreate(array $attributes)
-         * @method static Post|Proxy first(string $sortBy = 'id')
-         * @method static Post|Proxy last(string $sortBy = 'id')
-         * @method static Post|Proxy random(array $attributes = [])
-         * @method static Post|Proxy randomOrCreate(array $attributes = []))
-         * @method static PostRepository|RepositoryProxy repository()
-         * @method static Post[]|Proxy[] all()
-         * @method static Post[]|Proxy[] createMany(int $number, array|callable $attributes = [])
-         * @method static Post[]&Proxy[] createSequence(iterable|callable $sequence)
-         * @method static Post[]|Proxy[] findBy(array $attributes)
-         * @method static Post[]|Proxy[] randomRange(int $min, int $max, array $attributes = []))
-         * @method static Post[]|Proxy[] randomRangeOrCreate(int $min, int $max, array $attributes = [])
-         * @method static Post[]|Proxy[] randomSet(int $number, array $attributes = []))
-         *
-         * @phpstan-method Proxy<Post>&Post create(array|callable $attributes = [])
-         * @phpstan-method static Proxy<Post>&Post createOne(array $attributes = [])
-         * @phpstan-method static Proxy<Post>&Post find(object|array|mixed $criteria)
-         * @phpstan-method static Proxy<Post>&Post findOrCreate(array $attributes)
-         * @phpstan-method static Proxy<Post>&Post first(string $sortBy = 'id')
-         * @phpstan-method static Proxy<Post>&Post last(string $sortBy = 'id')
-         * @phpstan-method static Proxy<Post>&Post random(array $attributes = [])
-         * @phpstan-method static Proxy<Post>&Post randomOrCreate(array $attributes = [])
-         * @phpstan-method static list<Proxy<Post>&Post> all()
-         * @phpstan-method static list<Proxy<Post>&Post> createMany(int $number, array|callable $attributes = [])
-         * @phpstan-method static list<Proxy<Post>&Post> createSequence(array|callable $sequence)
-         * @phpstan-method static list<Proxy<Post>&Post> findBy(array $attributes)
-         * @phpstan-method static list<Proxy<Post>&Post> randomRange(int $min, int $max, array $attributes = [])
-         * @phpstan-method static list<Proxy<Post>&Post> randomRangeOrCreate(int $min, int $max, array $attributes = [])
-         * @phpstan-method static list<Proxy<Post>&Post> randomSet(int $number, array $attributes = [])
-         * @phpstan-method static RepositoryProxy<Post>&Post repository()
-         */
-        final class PostFactory extends PersistentProxyObjectFactory
-        {
-            // ...
-        }
 
 .. _defaults:
 
@@ -319,14 +281,8 @@ Using your Factory
     // createOne() returns the persisted Post object wrapped in a Proxy object
     $post = PostFactory::createOne();
 
-    // the "Proxy" magically calls the underlying Post methods and is type-hinted to "Post"
-    $title = $post->getTitle(); // getTitle() can be autocompleted by your IDE!
-
-    // if you need the actual Post object, use ->_real()
-    $realPost = $post->_real();
-
     // create/persist 5 Posts with random data from defaults()
-    PostFactory::createMany(5); // returns Post[]|Proxy[]
+    PostFactory::createMany(5); // returns Post[]
     PostFactory::createMany(5, ['title' => 'My Title']);
 
     // Create 5 posts with incremental title
@@ -338,7 +294,7 @@ Using your Factory
     );
 
     // find a persisted object for the given attributes, if not found, create with the attributes
-    PostFactory::findOrCreate(['title' => 'My Title']); // returns Post|Proxy
+    PostFactory::findOrCreate(['title' => 'My Title']); // returns Post
 
     PostFactory::first(); // get the first object (assumes an auto-incremented "id" column)
     PostFactory::first('createdAt'); // assuming "createdAt" is a datetime column, this will return latest object
@@ -350,15 +306,15 @@ Using your Factory
     PostFactory::count(); // the number of persisted Posts
     PostFactory::count(['category' => $category]); // the number of persisted Posts with the given category
 
-    PostFactory::all(); // Post[]|Proxy[] all the persisted Posts
+    PostFactory::all(); // Post[] all the persisted Posts
 
-    PostFactory::findBy(['author' => 'kevin']); // Post[]|Proxy[] matching the filter
+    PostFactory::findBy(['author' => 'kevin']); // Post[] matching the filter
 
-    $post = PostFactory::find(5); // Post|Proxy with the id of 5
-    $post = PostFactory::find(['title' => 'My First Post']); // Post|Proxy matching the filter
+    $post = PostFactory::find(5); // Post with the id of 5
+    $post = PostFactory::find(['title' => 'My First Post']); // Post matching the filter
 
     // get a random object that has been persisted
-    $post = PostFactory::random(); // returns Post|Proxy
+    $post = PostFactory::random(); // returns Post
     $post = PostFactory::random(['author' => 'kevin']); // filter by the passed attributes
 
     // or automatically persist a new random object if none exists
@@ -366,15 +322,15 @@ Using your Factory
     $post = PostFactory::randomOrCreate(['author' => 'kevin']); // filter by or create with the passed attributes
 
     // get a random set of objects that have been persisted
-    $posts = PostFactory::randomSet(4); // array containing 4 "Post|Proxy" objects
+    $posts = PostFactory::randomSet(4); // array containing 4 "Post" objects
     $posts = PostFactory::randomSet(4, ['author' => 'kevin']); // filter by the passed attributes
 
     // random range of persisted objects
-    $posts = PostFactory::randomRange(0, 5); // array containing 0-5 "Post|Proxy" objects
+    $posts = PostFactory::randomRange(0, 5); // array containing 0-5 "Post" objects
     $posts = PostFactory::randomRange(0, 5, ['author' => 'kevin']); // filter by the passed attributes
 
     // or automatically persist a new random range of objects if none exists
-    $posts = PostFactory::randomRangeOrCreate(0, 5); // array containing 0-5 "Post|Proxy" objects
+    $posts = PostFactory::randomRangeOrCreate(0, 5); // array containing 0-5 "Post" objects
     $posts = PostFactory::randomRangeOrCreate(0, 5, ['author' => 'kevin']); // filter by or create with the passed attributes
 
 Reusable Factory "States"
@@ -385,7 +341,7 @@ you can also add *states*:
 
 ::
 
-    final class PostFactory extends PersistentProxyObjectFactory
+    final class PostFactory extends PersistentObjectFactory
     {
         // ...
 
@@ -554,6 +510,36 @@ If you have a collection of values that you want to distribute over a collection
 
     The ``distribute()`` method was added in Foundry 2.4.
 
+Apply State Method over a Collection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is also possible to call a "state method" on each element of a collection by using the method ``FactoryCollection::applyStateMethod()``
+(after a ``many()``, a ``sequence()``, or a ``distribute()``):
+
+::
+
+    final class PostFactory extends PersistentObjectFactory
+    {
+        // ...
+
+        public function published(): self
+        {
+            return $this->with(['published_at' => self::faker()->dateTime()]);
+        }
+
+        public function title(string $title): self
+        {
+            return $this->with(['title' => $title]);
+        }
+    }
+
+    $post = PostFactory::new()
+        ->many(3)
+        ->applyStateMethod('published')
+        ->applyStateMethod('title', static fn(int $i) => ["title $i"])
+        ->create()
+    ;
+
 Faker
 ~~~~~
 
@@ -626,7 +612,7 @@ Hooks
 ~~~~~
 
 The following hooks can be added to factories. Multiple hooks callbacks can be added, they are run in the order
-they were added.
+they were added, or by priority (higher priority hooks are executed first).
 
 ::
 
@@ -655,10 +641,15 @@ they were added.
         })
 
         // multiple events are allowed
-        ->beforeInstantiate(function($parameters) { return $parameters; })
-        ->afterInstantiate(function() {})
-        ->afterPersist(function() {})
+        // priority can be provided: all the following would be executed before the previous ones
+        ->beforeInstantiate(function($parameters) { return $parameters; }, priority: 10)
+        ->afterInstantiate(function() {}, priority: 10)
+        ->afterPersist(function() {}, priority: 10)
     ;
+
+.. versionadded::  2.8
+
+    Hook priority were added in Foundry 2.8.
 
 You can also add hooks directly in your factory class:
 
@@ -673,6 +664,63 @@ You can also add hooks directly in your factory class:
 
 Read `Initialization`_ to learn more about the ``initialize()`` method.
 
+Hooks as service / global hooks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a better control of your hooks, you can define them as services, allowing to leverage dependency injection and
+to create hooks globally:
+
+::
+
+    use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
+    use Zenstruck\Foundry\Object\Event\AfterInstantiate;
+    use Zenstruck\Foundry\Object\Event\BeforeInstantiate;
+    use Zenstruck\Foundry\Persistence\Event\AfterPersist;
+
+    final class FoundryHook
+    {
+        #[AsFoundryHook(Post::class)]
+        public function beforeInstantiate(BeforeInstantiate $event): void
+        {
+            // do something before the post is instantiated:
+            // $event->parameters is what will be used to instantiate the object, manipulate as required
+            // $event->objectClass is the class of the object being instantiated
+            // $event->factory is the factory instance which creates the object
+        }
+
+        #[AsFoundryHook(Post::class)]
+        public function afterInstantiate(AfterInstantiate $event): void
+        {
+            // $event->object is the instantiated Post object
+            // $event->parameters contains the attributes used to instantiate the object and any extras
+            // $event->factory is the factory instance which creates the object
+        }
+
+        #[AsFoundryHook(Post::class)]
+        public function afterPersist(AfterPersist $event): void
+        {
+            // this event is only called if the object was persisted
+            // $event->object is the persisted Post object
+            // $event->parameters contains the attributes used to instantiate the object and any extras
+            // $event->factory is the factory instance which creates the object
+        }
+
+        #[AsFoundryHook]
+        public function afterInstantiateGlobal(AfterInstantiate $event): void
+        {
+            // Omitting class defines a "global" hook which will be called for all objects
+        }
+    }
+
+.. versionadded::  2.8
+
+    The ``#[AsFoundryHook]`` attribute was added in Foundry 2.8.
+
+.. note::
+
+    If you want to save data to the database in an ``AfterPersist`` listener, Foundry won't flush automatically, and you
+    will need to explicitly call ``EntityManager::flush()`` inside the listener.
+
 Initialization
 ~~~~~~~~~~~~~~
 
@@ -680,7 +728,7 @@ You can override your factory's ``initialize()`` method to add default state/log
 
 ::
 
-    final class PostFactory extends PersistentProxyObjectFactory
+    final class PostFactory extends PersistentObjectFactory
     {
         // ...
 
@@ -727,7 +775,7 @@ attributes provided:
         ->instantiateWith(Instantiator::withConstructor()->allowExtra())
 
         // force set "title" and "body" when instantiating
-        ->instantiateWith(Instantiator::withConstructor()->alwaysForce(['title', 'body']))
+        ->instantiateWith(Instantiator::withConstructor()->alwaysForce('title', 'body'))
 
         // never use setters, always "force set" properties (even private/protected, does not use setter)
         ->instantiateWith(Instantiator::withConstructor()->alwaysForce())
@@ -776,6 +824,8 @@ instantiators):
                 always_force_properties: true # always "force set" properties
                 # or
                 service: my_instantiator # your own invokable service for complete control
+
+.. _force-helper:
 
 ``force()`` helper
 ..................
@@ -837,10 +887,9 @@ The following assumes the ``Comment`` entity has a many-to-one relationship with
     use App\Factory\PostFactory;
 
     // Example 1: pre-create Post and attach to Comment
-    $post = PostFactory::createOne(); // instance of Proxy
+    $post = PostFactory::createOne();
 
     CommentFactory::createOne(['post' => $post]);
-    CommentFactory::createOne(['post' => $post->_real()]); // functionally the same as above
 
     // Example 2: pre-create Posts and choose a random one
     PostFactory::createMany(5); // create 5 Posts
@@ -998,7 +1047,7 @@ the LazyValue can be `memoized <https://en.wikipedia.org/wiki/Memoization>`_ so 
 
         use Zenstruck\Foundry\LazyValue;
 
-        class TaskFactory extends PersistentProxyObjectFactory
+        class TaskFactory extends PersistentObjectFactory
         {
             // ...
 
@@ -1032,7 +1081,7 @@ common use-case: encoding a password with the ``UserPasswordHasherInterface`` se
     // src/Factory/UserFactory.php
     use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-    final class UserFactory extends PersistentProxyObjectFactory
+    final class UserFactory extends PersistentObjectFactory
     {
         // the injected service should be nullable in order to be used in unit test, without container
         public function __construct(
@@ -1100,11 +1149,10 @@ Foundry can be used to create factories for entities that you don't have factori
 ::
 
     use App\Entity\Post;
-    use function Zenstruck\Foundry\Persistence\persist_proxy;
-    use function Zenstruck\Foundry\Persistence\proxy_factory;
+    use function Zenstruck\Foundry\Persistence\persistent_factory;
     use function Zenstruck\Foundry\Persistence\repository;
 
-    $factory = proxy_factory(Post::class);
+    $factory = persistent_factory(Post::class);
 
     // has the same API as non-anonymous factories
     $factory->create(['field' => 'value']);
@@ -1124,27 +1172,24 @@ Foundry can be used to create factories for entities that you don't have factori
 
     $repository->truncate(); // empty the database table
     $repository->count(); // the number of persisted Post's
-    $repository->all(); // Post[]|Proxy[] all the persisted Post's
+    $repository->all(); // Post[] all the persisted Post's
 
-    $repository->findBy(['author' => 'kevin']); // Post[]|Proxy[] matching the filter
+    $repository->findBy(['author' => 'kevin']); // Post[] matching the filter
 
-    $repository->find(5); // Post|Proxy with the id of 5
-    $repository->find(['title' => 'My First Post']); // Post|Proxy matching the filter
+    $repository->find(5); // Post with the id of 5
+    $repository->find(['title' => 'My First Post']); // Post matching the filter
 
     // get a random object that has been persisted
-    $repository->random(); // returns Post|Proxy
+    $repository->random(); // returns Post
     $repository->random(['author' => 'kevin']); // filter by the passed attributes
 
     // get a random set of objects that have been persisted
-    $repository->randomSet(4); // array containing 4 "Post|Proxy" objects
+    $repository->randomSet(4); // array containing 4 "Post" objects
     $repository->randomSet(4, ['author' => 'kevin']); // filter by the passed attributes
 
     // random range of persisted objects
-    $repository->randomRange(0, 5); // array containing 0-5 "Post|Proxy" objects
+    $repository->randomRange(0, 5); // array containing 0-5 "Post" objects
     $repository->randomRange(0, 5, ['author' => 'kevin']); // filter by the passed attributes
-
-    // convenience functions
-    $entity = persist_proxy(Post::class, ['field' => 'value']);
 
 .. note::
 
@@ -1202,8 +1247,7 @@ Not-persisted objects factory
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When dealing with objects which are not aimed to be persisted, you can make your factory inherit from
-``Zenstruck\Foundry\ObjectFactory``. This will create plain objects, that does not interact with database (these objects
-won't be wrapped with a :ref:`proxy object <object-proxy>`).
+``Zenstruck\Foundry\ObjectFactory``. This will create plain objects, that does not interact with database.
 
 .. _without-persisting:
 
@@ -1211,30 +1255,26 @@ Without Persisting
 ~~~~~~~~~~~~~~~~~~
 
 "Persistent factories" can also create objects without persisting them. This can be useful for unit tests where you just
-want to test the behavior of the actual object or for creating objects that are not entities. When created, they are
-still wrapped in a ``Proxy`` to optionally save later.
+want to test the behavior of the actual object or for creating objects that are not entities.
 
 ::
 
     use App\Entity\Post;
     use App\Factory\PostFactory;
     use function Zenstruck\Foundry\object;
-    use function Zenstruck\Foundry\Persistence\proxy_factory;
+    use function Zenstruck\Foundry\Persistence\persistent_factory;
+    use function Zenstruck\Foundry\Persistence\save;
 
-    $post = PostFactory::new()->withoutPersisting()->create(); // returns Post|Proxy
+    $post = PostFactory::new()->withoutPersisting()->create(); // returns Post
     $post->setTitle('something else'); // do something with object
-    $post->_save(); // persist the Post (save() is a method on Proxy)
+    save($post); // persist the Post
 
-    $post = PostFactory::new()->withoutPersisting()->create()->object(); // actual Post object
-
-    $posts = PostFactory::new()->withoutPersisting()->many(5)->create(); // returns Post[]|Proxy[]
+    $posts = PostFactory::new()->withoutPersisting()->many(5)->create(); // returns Post[]
 
     // anonymous factories:
-    $factory = proxy_factory(Post::class);
+    $factory = persistent_factory(Post::class);
 
-    $entity = $factory->withoutPersisting()->create(['field' => 'value']); // returns Post|Proxy
-
-    $entity = $factory->withoutPersisting()->create(['field' => 'value'])->object(); // actual Post object
+    $entity = $factory->withoutPersisting()->create(['field' => 'value']); // returns Post
 
     $entities = $factory->withoutPersisting()->many(5)->create(['field' => 'value']); // returns Post[]|Proxy[]
 
@@ -1252,15 +1292,8 @@ If you'd like your factory to not persist by default, override its ``initialize(
         ;
     }
 
-Now, after creating objects using this factory, you'd have to call ``->_save()`` to actually persist them to the database.
-
-.. tip::
-
-    If you'd like to disable persisting by default for all your object factories:
-
-    1. Create an abstract factory that extends ``PersistentProxyObjectFactory``.
-    2. Override the ``initialize()`` method as shown above.
-    3. Have all your factories extend from this.
+Now, after creating objects using this factory, you'd have to call ``\Zenstruck\Foundry\Persistence\save()`` to actually
+persist them to the database.
 
 Array factories
 ~~~~~~~~~~~~~~~
@@ -1286,6 +1319,38 @@ You can even create associative arrays, with the nice DX provided by Foundry:
 
     // will create ['prop1' => 'foo', 'prop2' => 'default value 2']
     $array = SomeArrayFactory::createOne(['prop1' => 'foo']);
+
+Helper Functions
+~~~~~~~~~~~~~~~~
+
+Foundry provides some helper functions:
+
+Objects related helpers
+.......................
+
+- ``Zenstruck\Foundry\factory(string $class, array|callable $attributes = []): ObjectFactory``: Creates an "anonymous" factory, with default attributes
+- ``Zenstruck\Foundry\object(string $class, array|callable $attributes = []): object``: Directly creates an object, based on the attributes provided
+- ``Zenstruck\Foundry\set(object $object, string $property, mixed $value): object``: Forces set a property for an object (uses reflection)
+- ``Zenstruck\Foundry\get(object $object, string $property): mixed``: Gets the value of a property
+- ``Zenstruck\Foundry\lazy(): LazyValue``: see `Lazy Values`_
+- ``Zenstruck\Foundry\memoize(): LazyValue``: see `Lazy Values`_
+- ``Zenstruck\Foundry\force(): ForceValue``: see :ref:`force() helper <force-helper>`
+
+Persistence related helpers
+...........................
+
+- ``Zenstruck\Foundry\Persistent\repository(string $class): RepositoryDecorator``: Returns a ``RepositoryDecorator`` for the given class
+- ``Zenstruck\Foundry\Persistent\persistent_factory(string $class, array|callable $attributes = []): PersistentObjectFactory``: Creates an "anonymous" persistent factory, with default attributes
+- ``Zenstruck\Foundry\Persistent\persist(string $class, array|callable $attributes = []): object``: Directly creates an object (and persist it), based on the attributes provided
+- ``Zenstruck\Foundry\Persistent\save(object $object): object``: Saves to the database the given object
+- ``Zenstruck\Foundry\Persistent\refresh(object &$object): object``: Refresh the object from the database
+- ``Zenstruck\Foundry\Persistent\refresh_all(): void``: Refresh all persisted objects created by Foundry for which a reference exists (PHP 8.4 only)
+- ``Zenstruck\Foundry\Persistent\delete(object $object): object``: Removes an object from the database
+- ``Zenstruck\Foundry\Persistent\flush_after(callable $callback): mixed``: see `Delay Flush`_
+- ``Zenstruck\Foundry\Persistent\disable_persisting(): void``: Disable the persistence of the factories for the current test
+- ``Zenstruck\Foundry\Persistent\enable_persisting(): void``: Re-enable the persistence of the factories
+- ``Zenstruck\Foundry\Persistent\assert_persisted(object $object, string $message = '{entity} is not persisted.'): object``: see `Assertions`_
+- ``Zenstruck\Foundry\Persistent\assert_not_persisted(object $object, string $message = '{entity} is persisted.'): object``: see `Assertions`_
 
 Stories
 -------
@@ -1426,11 +1491,10 @@ Later, you can access the story's state when creating other fixtures:
         namespace App\Story;
 
         use App\Factory\CategoryFactory;
-        use Zenstruck\Foundry\Persistence\Proxy;
         use Zenstruck\Foundry\Story;
 
         /**
-         * @method static Category&Proxy<Category> php()
+         * @method static Category<Category> php()
          */
         final class CategoryStory extends Story
         {
@@ -1483,10 +1547,10 @@ Objects can be fetched from pools in your tests, fixtures or other stories:
 
 ::
 
-    ProvinceStory::getRandom('be'); // random Province|Proxy from "be" pool
-    ProvinceStory::getRandomSet('be', 3); // 3 random Province|Proxy's from "be" pool
-    ProvinceStory::getRandomRange('be', 1, 4); // between 1 and 4 random Province|Proxy's from "be" pool
-    ProvinceStory::getPool('be'); // all Province|Proxy's from "be" pool
+    ProvinceStory::getRandom('be'); // random Province from "be" pool
+    ProvinceStory::getRandomSet('be', 3); // 3 random Province from "be" pool
+    ProvinceStory::getRandomRange('be', 1, 4); // between 1 and 4 random Province from "be" pool
+    ProvinceStory::getPool('be'); // all Province from "be" pool
 
 #[WithStory] Attribute
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1526,9 +1590,9 @@ Local Development Fixtures
 
 .. versionadded:: 2.6
 
-    The ``foundry:load-stories`` command and ``#[AsFixture]`` attribute were added in 2.6.
+    The ``foundry:load-fixtures`` command and ``#[AsFixture]`` attribute were added in 2.6.
 
-Using ``bin/console foundry:load-stories``, you can load stories as fixtures in your database.
+Using ``bin/console foundry:load-fixtures``, you can load stories as fixtures in your database.
 This is mainly useful to load fixtures in "dev" mode.
 
 Mark `Stories`_ you want loaded by the command with the ``#[AsFixture]`` attribute:
@@ -1543,11 +1607,11 @@ Mark `Stories`_ you want loaded by the command with the ``#[AsFixture]`` attribu
         // ...
     }
 
-``bin/console foundry:load-stories category`` will now load the story ``CategoryStory`` in your database.
+``bin/console foundry:load-fixtures category`` will now load the story ``CategoryStory`` in your database.
 
 .. note::
 
-    If only a single story exists, you can omit the argument and just call ``bin/console foundry:load-stories`` to load it.
+    If only a single story exists, you can omit the argument and just call ``bin/console foundry:load-fixtures`` to load it.
 
 You can also load stories by group, by using the ``groups`` option:
 
@@ -1555,13 +1619,13 @@ You can also load stories by group, by using the ``groups`` option:
 
     use Zenstruck\Foundry\Attribute\AsFixture;
 
-    #[AsFixture(name: 'category', groups: ['all-stories'])]
+    #[AsFixture(name: 'category', groups: ['all'])]
     final class CategoryStory extends Story {}
 
-    #[AsFixture(name: 'post', groups: ['all-stories'])]
+    #[AsFixture(name: 'post', groups: ['all'])]
     final class PostStory extends Story {}
 
-``bin/console foundry:load-stories all-stories`` will load both stories ``CategoryStory`` and ``PostStory``.
+``bin/console foundry:load-fixtures all`` will load both stories ``CategoryStory`` and ``PostStory``.
 
 .. tip::
 
@@ -1578,8 +1642,7 @@ are testing.
 Foundry allows each individual test to fully follow the `AAA <https://www.thephilocoder.com/unit-testing-aaa-pattern/>`_
 ("Arrange", "Act", "Assert") testing pattern. You create your fixtures using "factories" at the beginning of each test.
 You only create fixtures that are applicable for the test. Additionally, these fixtures are created with only the
-attributes required for the test - attributes that are not applicable are filled with random data. The created fixture
-objects are wrapped in a "proxy" that helps with pre and post assertions.
+attributes required for the test - attributes that are not applicable are filled with random data.
 
 Let's look at an example:
 
@@ -1609,8 +1672,6 @@ Let's look at an example:
 
         // 3. "Assert"
         self::assertResponseRedirects('/posts/post-a');
-
-        $this->assertCount(1, $post->_refresh()->getComments()); // Refresh $post from the database and call ->getComments()
 
         CommentFactory::assert()->exists([ // Doctrine repository assertions
             'name' => 'John',
@@ -1772,13 +1833,70 @@ The reset mechanism can be extended thanks to decoration:
 
 If using a standard Symfony Flex app, this will be autowired/autoconfigured. If not, register the service
 
+.. _auto-refresh:
+
+Auto-Refresh
+~~~~~~~~~~~~
+
+.. warning::
+
+    Auto-refresh mechanism leverages `PHP 8.4 lazy objects <https://www.php.net/manual/en/language.oop5.lazy-objects.php>`_,
+    so this feature is only available when using PHP 8.4 or later.
+
+.. info::
+
+    For PHP versions older than PHP 8.4, auto-refresh is made using :ref:`Proxy mechanism <object-proxy>`.
+
+Foundry provides a mechanism to automatically refresh inside a functional test the objects created by factories:
+
+::
+
+    use App\Factory\PostFactory;
+    use Zenstruck\Foundry\Test\Factories;
+    use Zenstruck\Foundry\Test\ResetDatabase;
+
+    class MyTest extends WebTestCase
+    {
+        use Factories, ResetDatabase;
+
+        public function test_with_autorefresh(): void
+        {
+            $post = PostFactory::createOne(['title' => 'My Title']);
+
+            $client = self::createClient();
+            $client->request('GET', "/update-post/{$post->id}", ['title' => 'New Title']);
+            self::assertResponseIsSuccessful();
+
+            // no need to manually refresh the post from the database, it has been automatically refreshed
+            $this->assertSame('New Title', $post->getTitle());
+        }
+    }
+
+This will work for HTTP calls simulated by the client, as well as testing commands or message handlers.
+
+You can enable auto-refreshing in the config:
+
+.. configuration-block::
+
+    .. code-block:: yaml
+
+        # config/packages/zenstruck_foundry.yaml
+        when@dev: # see Bundle Configuration section about sharing this in the test environment
+            zenstruck_foundry:
+                enable_auto_refresh_with_lazy_objects: true
+
 .. _object-proxy:
 
 Object Proxy
 ~~~~~~~~~~~~
 
-Objects created by a factory are wrapped in a special *Proxy* object. These objects allow your doctrine entities
-to have `Active Record <https://en.wikipedia.org/wiki/Active_record_pattern>`_ *like* behavior:
+.. warning::
+
+    Object proxy are deprecated since Foundry 2.7. Please use `auto-refresh`_ mechanism instead (PHP 8.4 only).
+    See `the upgrade guide to v2.7 <https://github.com/zenstruck/foundry/blob/2.x/UPGRADE-2.7.md>`_
+
+Objects created by a factory extending ``PersistentProxyObjectFactory`` are wrapped in a special *Proxy* object.
+These objects allow your doctrine entities to have `Active Record <https://en.wikipedia.org/wiki/Active_record_pattern>`_ *like* behavior:
 
 ::
 
@@ -1858,7 +1976,7 @@ Without auto-refreshing enabled, the above call to ``$post->getTitle()`` would r
         $post->setTitle('New Title');
         $post->setBody('New Body'); // exception thrown because of "unsaved changes" to $post from above
 
-    To overcome this, you need to first disable auto-refreshing, then re-enable after making/saving the changes:
+To overcome this, you need to first disable auto-refreshing, then re-enable after making/saving the changes:
 
 ::
 
@@ -1871,8 +1989,8 @@ Without auto-refreshing enabled, the above call to ``$post->getTitle()`` would r
         ;
 
         $post->_disableAutoRefresh();
-        $post->setTitle('New Title'); // or using ->forceSet('title', 'New Title')
-        $post->setBody('New Body'); // or using ->forceSet('body', 'New Body')
+        $post->setTitle('New Title'); // or using ->_set('title', 'New Title')
+        $post->setBody('New Body'); // or using ->_set('body', 'New Body')
         $post->_enableAutoRefresh();
         $post->_save();
 
@@ -1914,10 +2032,10 @@ the "real" object, which won't be wrapped by ``Proxy`` class.
 
     Be aware that your object won't refresh automatically if they are not wrapped with a proxy.
 
-Repository Proxy
-~~~~~~~~~~~~~~~~
+Repository Decorator
+~~~~~~~~~~~~~~~~~~~~
 
-This library provides a *Repository Proxy* that wraps your object repositories to provide useful assertions and methods:
+This library provides a *Repository Decorator* that wraps your object repositories to provide useful assertions and methods:
 
 ::
 
@@ -1928,13 +2046,13 @@ This library provides a *Repository Proxy* that wraps your object repositories t
     // instance of RepositoryProxy that wraps PostRepository
     $repository = PostFactory::repository();
 
-    // alternative to above for proxying repository you haven't created factories for
+    // alternative to above for getting a repository for which you haven't created factories for
     $repository = repository(Post::class);
 
     // helpful methods - all returned object(s) are proxied
     $repository->inner(); // the real "wrapped" repository
     $repository->count(); // number of rows in the database table
-    count($repository); // equivalent to above (RepositoryProxy implements \Countable)
+    count($repository); // equivalent to above (RepositoryDecorator implements \Countable)
     $repository->first(); // get the first object (assumes an auto-incremented "id" column)
     $repository->first('createdAt'); // assuming "createdAt" is a datetime column, this will return latest object
     $repository->last(); // get the last object (assumes an auto-incremented "id" column)
@@ -1948,28 +2066,30 @@ This library provides a *Repository Proxy* that wraps your object repositories t
     $repository->randomRange(0, 5, ['author' => 'kevin']); // get 0-5 random objects filtered by the passed criteria
 
     // instance of ObjectRepository - all returned object(s) are proxied
-    $repository->find(1); // Proxy|Post|null
-    $repository->find(['title' => 'My Title']); // Proxy|Post|null
-    $repository->findOneBy(['title' => 'My Title']); // Proxy|Post|null
-    $repository->findAll(); // Proxy[]|Post[]
-    iterator_to_array($repository); // equivalent to above (RepositoryProxy implements \IteratorAggregate)
-    $repository->findBy(['title' => 'My Title']); // Proxy[]|Post[]
+    $repository->find(1); // Post|null
+    $repository->find(['title' => 'My Title']); // Post|null
+    $repository->findOneBy(['title' => 'My Title']); // Post|null
+    $repository->findAll(); // Post[]
+    iterator_to_array($repository); // equivalent to above (RepositoryDecorator implements \IteratorAggregate)
+    $repository->findBy(['title' => 'My Title']); // Post[]
 
-    // can call methods on the underlying repository - returned object(s) are proxied
-    $repository->findOneByTitle('My Title'); // Proxy|Post|null
+    // can call methods on the underlying repository (RepositoryDecorator is a "@mixin" of its wrapped repository)
+    $repository->findOneByTitle('My Title'); // Post|null
 
 Assertions
 ~~~~~~~~~~
 
-Both object proxies and your Factory have helpful PHPUnit assertions:
+Foundry provides helpful PHPUnit assertions:
 
 ::
 
     use App\Factory\PostFactory;
+    use function Zenstruck\Foundry\Persistence\assert_not_persisted;
+    use function Zenstruck\Foundry\Persistence\assert_persisted;
 
     $post = PostFactory::createOne();
-    $post->_assertPersisted();
-    $post->_assertNotPersisted();
+    assert_persisted($post);
+    assert_not_persisted($post);
 
     PostFactory::assert()->empty();
     PostFactory::assert()->count(3);
@@ -2062,12 +2182,17 @@ you're using them in tests. Thanks to it, you can:
 
 .. warning::
 
-    Because Foundry is relying on its :ref:`Proxy mechanism <#object-proxy>`, when using persistence,
-    your factories must extend ``Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory`` to work in your data providers.
+    With PHP < 8.4, Foundry is relying on its :ref:`Proxy mechanism <object-proxy>`, when using persistence,
+    your factories must extend ``Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory`` to work in your data providers
+    (with PHP >= 8.4, it will work out of the box).
 
 .. warning::
 
-    For the same reason, you should not call methods from ``Proxy`` class in your data providers, not even ``->_real()``.
+    When in a data provider, calling ``->create()`` or ``::createOne()`` will return a `PHP 8.4 lazy objects <https://www.php.net/manual/en/language.oop5.lazy-objects.php>`_.
+    You should not try to access any of its properties or methods inside the data provider, otherwise it will trigger
+    the persist mechanism, which is something you don't want to do in a data provider (it will fail, anyway).
+    For the same reason, on PHP versions above PHP 8.4, you should not call methods from ``Proxy`` class in your
+    data providers, not even ``->_real()``.
 
 
 Without PHPUnit Extension
@@ -2292,12 +2417,12 @@ You can improve the speed by reducing the *work factor* of your encoder:
 Pre-Encode Passwords
 ....................
 
-Pre-encode user passwords with a known value via ``bin/console security:encode-password`` and set this in
+Pre-encode user passwords with a known value via ``bin/console security:hash-password`` and set this in
 ``defaults()``. Add the known value as a ``const`` on your factory:
 
 ::
 
-    class UserFactory extends PersistentProxyObjectFactory
+    class UserFactory extends PersistentObjectFactory
     {
         public const DEFAULT_PASSWORD = '1234'; // the password used to create the pre-encoded version below
 
@@ -2519,6 +2644,8 @@ Full Default Bundle Configuration
 .. code-block:: yaml
 
     zenstruck_foundry:
+        # Enable auto-refresh with lazy objects (PHP >= 8.4 only).
+        enable_auto_refresh_with_lazy_objects: false
 
         # Configure faker to be used by your factories.
         faker:

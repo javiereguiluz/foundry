@@ -12,13 +12,13 @@
 namespace App\Factory;
 
 use Symfony\Component\Uid\Uuid;
-use Zenstruck\Foundry\Persistence\PersistentProxyObjectFactory;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Entity\WithUidColumn;
 
 /**
- * @extends PersistentProxyObjectFactory<WithUidColumn>
+ * @extends PersistentObjectFactory<WithUidColumn>
  */
-final class WithUidColumnFactory extends PersistentProxyObjectFactory
+final class WithUidColumnFactory extends PersistentObjectFactory
 {
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#factories-as-services
@@ -29,6 +29,7 @@ final class WithUidColumnFactory extends PersistentProxyObjectFactory
     {
     }
 
+    #[\Override]
     public static function class(): string
     {
         return WithUidColumn::class;
@@ -39,6 +40,7 @@ final class WithUidColumnFactory extends PersistentProxyObjectFactory
      *
      * @todo add your default values here
      */
+    #[\Override]
     protected function defaults(): array|callable
     {
         return [
@@ -50,6 +52,7 @@ final class WithUidColumnFactory extends PersistentProxyObjectFactory
     /**
      * @see https://symfony.com/bundles/ZenstruckFoundryBundle/current/index.html#initialization
      */
+    #[\Override]
     protected function initialize(): static
     {
         return $this

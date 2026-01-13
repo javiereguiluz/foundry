@@ -286,18 +286,6 @@ abstract class GenericProxyFactoryTestCase extends GenericFactoryTestCase
      * @test
      */
     #[Test]
-    public function can_delete_proxified_object_and_still_access_its_methods(): void
-    {
-        $object = static::factory()->create();
-        $object->_delete();
-
-        $this->assertSame('default1', $object->getProp1());
-    }
-
-    /**
-     * @test
-     */
-    #[Test]
     public function can_use_after_persist_with_attributes_added_in_before_instantiate(): void
     {
         $value = 'value set with before instantiate';
@@ -314,6 +302,18 @@ abstract class GenericProxyFactoryTestCase extends GenericFactoryTestCase
             ->create();
 
         $this->assertSame($value, $object->getProp1());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function can_delete_proxified_object_and_still_access_its_methods(): void
+    {
+        $object = static::factory()->create();
+        $object->_delete();
+
+        $this->assertSame('default1', $object->getProp1());
     }
 
     /**

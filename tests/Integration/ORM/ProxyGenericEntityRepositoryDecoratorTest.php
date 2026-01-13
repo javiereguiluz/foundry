@@ -13,21 +13,21 @@ declare(strict_types=1);
 
 namespace Zenstruck\Foundry\Tests\Integration\ORM;
 
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RequiresMethod;
+use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
 use Zenstruck\Foundry\Tests\Fixture\Factories\Entity\GenericProxyEntityFactory;
-use Zenstruck\Foundry\Tests\Integration\Persistence\GenericRepositoryDecoratorTestCase;
-use Zenstruck\Foundry\Tests\Integration\RequiresORM;
 
 /**
  * @group legacy
  */
 #[IgnoreDeprecations]
-final class ProxyGenericEntityRepositoryDecoratorTest extends GenericRepositoryDecoratorTestCase
+#[RequiresMethod(\Symfony\Component\VarExporter\LazyProxyTrait::class, 'createLazyProxy')]
+final class ProxyGenericEntityRepositoryDecoratorTest extends GenericEntityRepositoryDecoratorTest
 {
-    use RequiresORM;
-
-    protected function factory(): GenericProxyEntityFactory // @phpstan-ignore method.childReturnType
+    protected function factory(): PersistentObjectFactory
     {
-        return GenericProxyEntityFactory::new();
+        return GenericProxyEntityFactory::new(); // @phpstan-ignore return.type
     }
 }

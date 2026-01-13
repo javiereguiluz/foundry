@@ -1,5 +1,168 @@
 # CHANGELOG
 
+## [v2.8.4](https://github.com/zenstruck/foundry/releases/tag/v2.8.4)
+
+December 23rd, 2025 - [v2.8.3...v2.8.4](https://github.com/zenstruck/foundry/compare/v2.8.3...v2.8.4)
+
+* 45b6e21 fix: remove problematic "conflict" in composer.json (#1046) by @nikophil
+
+## [v2.8.3](https://github.com/zenstruck/foundry/releases/tag/v2.8.3)
+
+December 22nd, 2025 - [v2.8.2...v2.8.3](https://github.com/zenstruck/foundry/compare/v2.8.2...v2.8.3)
+
+* a102c0a fix: Allow PersistManager::refresh() to not throw in specific cases (#1044) by @nikophil
+* d4f9997 fix: auto-refresh problem with doctrine/orm 2 (#1042) by @nikophil
+* cace455 Update issue templates by @nikophil
+* b0a5703 fix: call inverse relatoinship callback before afterInstantiate() (#1041) by @nikophil
+
+## [v2.8.2](https://github.com/zenstruck/foundry/releases/tag/v2.8.2)
+
+December 9th, 2025 - [v2.8.1...v2.8.2](https://github.com/zenstruck/foundry/compare/v2.8.1...v2.8.2)
+
+* 9621dae Improve phpdoc for non empty list (#1037) by @VincentLanglet
+
+## [v2.8.1](https://github.com/zenstruck/foundry/releases/tag/v2.8.1)
+
+December 2nd, 2025 - [v2.8.0...v2.8.1](https://github.com/zenstruck/foundry/compare/v2.8.0...v2.8.1)
+
+* 7b9dc07 chore: actually suport Symfony 8 (#1022) by @nikophil
+
+## [v2.8.0](https://github.com/zenstruck/foundry/releases/tag/v2.8.0)
+
+November 9th, 2025 - [v2.7.9...v2.8.0](https://github.com/zenstruck/foundry/compare/v2.7.9...v2.8.0)
+
+* 8dc0b1f feat(2.8): introduce `#[AsFoudryHook]` attribute (#986) by @nikophil
+* bf4549c feat(2.8): dispatch events (#974) by @nikophil
+* 8516af1 docs: Remove array params on function alwaysForce (#1028) by @philpichet
+* 5f3a6b1 feat: add hooks priority (#1029) by @nikophil
+
+## [v2.7.9](https://github.com/zenstruck/foundry/releases/tag/v2.7.9)
+
+November 7th, 2025 - [v2.7.8...v2.7.9](https://github.com/zenstruck/foundry/compare/v2.7.8...v2.7.9)
+
+* 41ab3ae fix: auto-refresh with Mongo after DoctrineMongoDBBundle 5.4.3 (#1030) by @nikophil
+
+## [v2.7.8](https://github.com/zenstruck/foundry/releases/tag/v2.7.8)
+
+November 5th, 2025 - [v2.7.7...v2.7.8](https://github.com/zenstruck/foundry/compare/v2.7.7...v2.7.8)
+
+* 728c8f8 minor: Add default value to Factory::attributes (#1026) by @VincentLanglet
+* 0fe1017 tests: ensure Doctrine lifecycle works (#1020) by @nikophil
+* 1247b0b chore: remove paratest from dev dependencies (#1023) by @nikophil
+* 11355a9 chore: add concurrency for all workflows (#1019) by @nikophil
+* fed6e4a chore: fix rector with bamarni (#1018) by @nikophil
+* 545cf18 chore: split CIs and add concurrency (#1017) by @nikophil
+* 17796f2 chore: add bc-check to CI (#1016) by @nikophil
+* b8ced9b chore: disable sync template for cs config (#1015) by @nikophil
+* b802463 chore: some housekeeping (#1014) by @nikophil
+
+## [v2.7.7](https://github.com/zenstruck/foundry/releases/tag/v2.7.7)
+
+October 23rd, 2025 - [v2.7.6...v2.7.7](https://github.com/zenstruck/foundry/compare/v2.7.6...v2.7.7)
+
+* 7766a85 fix: only use PersistedObjectsTracker when auto-refresh is enabled (#1013) by @nikophil
+
+## [v2.7.6](https://github.com/zenstruck/foundry/releases/tag/v2.7.6)
+
+October 20th, 2025 - [v2.7.5...v2.7.6](https://github.com/zenstruck/foundry/compare/v2.7.5...v2.7.6)
+
+* 95d2a96 fix: autorefresh should work after kernel shutdown (#1011) by @nikophil
+* 0ea8430 tests: ensure OneToMany relationships are refreshed (#1010) by @nikophil
+* 3c6faff fix: RepositoryAssertion::exist() $criteria should allow mixed (#1007) by @nikophil
+* 81cc97d minor: accept as story any child of Story (#1006) by @alsciende
+* e99f3b0 chore: run rector CI with PHPUnit 12 (#1002) by @nikophil
+
+## [v2.7.5](https://github.com/zenstruck/foundry/releases/tag/v2.7.5)
+
+October 10th, 2025 - [v2.7.4...v2.7.5](https://github.com/zenstruck/foundry/compare/v2.7.4...v2.7.5)
+
+* 81eacf5 docs: add a note about using `make:factory --test` (#1000) by @ttskch
+* 660942d [Rector] Add rector to require-dev and use single autoload vendor for run PHPUnit (#1001) by @samsonasik
+* f06d58d fix: using `refresh_all()` with `flush_after()` (#999) by @HypeMC
+
+## [v2.7.4](https://github.com/zenstruck/foundry/releases/tag/v2.7.4)
+
+October 8th, 2025 - [v2.7.3...v2.7.4](https://github.com/zenstruck/foundry/compare/v2.7.3...v2.7.4)
+
+* 9489e83 fix: 🐛 use isser instead of constructor to apply autorefresh setting to Factory (#998) by @ttskch
+
+## [v2.7.3](https://github.com/zenstruck/foundry/releases/tag/v2.7.3)
+
+October 5th, 2025 - [v2.7.2...v2.7.3](https://github.com/zenstruck/foundry/compare/v2.7.2...v2.7.3)
+
+* 45214f7 fix: revert adding PersistManager::findBy() (#996) by @nikophil
+* b36b9b3 chore: upgrade PHPStan (#997) by @nikophil
+* 55f2689 fix: edge case with Doctrine Middleware & early kernel boot (#993) by @HypeMC
+* 9fa21b3 fix(repository): use IN() when an array is passed (#995) by @nikophil
+* cad1466 fix: handle readonly when refreshing from repository decorator (#989) by @nikophil
+* b4b2ffe fix: Enhanced random method with additional safety check. (#991) by @sofwar
+
+## [v2.7.2](https://github.com/zenstruck/foundry/releases/tag/v2.7.2)
+
+September 25th, 2025 - [v2.7.1...v2.7.2](https://github.com/zenstruck/foundry/compare/v2.7.1...v2.7.2)
+
+* 97b60b6 fix: applyStateMethod should not be internal (#988) by @nikophil
+
+## [v2.7.1](https://github.com/zenstruck/foundry/releases/tag/v2.7.1)
+
+September 24th, 2025 - [v2.7.0...v2.7.1](https://github.com/zenstruck/foundry/compare/v2.7.0...v2.7.1)
+
+* 90866d2 fix(autorefresh): return fresh data from RepositoryDecorator methods (#983) by @nikophil
+* 485746e fix(autorefresh): don't use clone to get the id values (#980) by @nikophil
+* 21b659b chore: fix issue template (#982) by @nikophil
+* 5d02ac6 Fix link to UPGRADE-2.7.md file (#978) by @Kocal
+
+## [v2.7.0](https://github.com/zenstruck/foundry/releases/tag/v2.7.0)
+
+September 17th, 2025 - [v2.6.3...v2.7.0](https://github.com/zenstruck/foundry/compare/v2.6.3...v2.7.0)
+
+* cd1b31a docs: add "Troubleshooting" section in upgrade guide (#943) by @nikophil
+* a83c249 feat: enable auto-refresh at factory level (#970) by @nikophil
+* 32e9868 fix: few fixes after #972 (#943) by @nikophil
+* 47b0d79 feat: use ghost objects for auto refresh mechanism (#967) (#943) by @nikophil
+* 3a131ef minor: improve deprecation message (#943) by @nikophil
+* 30df79d feat: auto-refresh objects from RepositoryDecorator (#943) by @nikophil
+* f675c37 minor: use ProxyGenerator::unwrap() instead of unproxy() and prevent deprec (#943) by @nikophil
+* 9d04094 minor: remove PersistedObjectsTracker::reset() call in tear down (#943) by @nikophil
+* 3e23fda refactor(maker): deprecate --with-phpdocs for PHP >=8.4 (#952) (#943) by @nikophil
+* 61cabac docs: create upgrade guide to 2.7 and document auto-refresh (#951) (#943) by @nikophil
+* fe6374b feat: auto refresh with lazy object php84 enabled by config (#950) (#943) by @nikophil
+* 9717676 feat: Rector rules to help migrating away from proxy (#941) (#943) by @nikophil
+* 35e8da6 feat: use native proxies for object creation in data providers (#943) by @nikophil
+* 02f85f2 feat: create proxy system with PHP 8.4 lazy proxies (#943) by @nikophil
+
+## [v2.6.3](https://github.com/zenstruck/foundry/releases/tag/v2.6.3)
+
+August 28th, 2025 - [v2.6.2...v2.6.3](https://github.com/zenstruck/foundry/compare/v2.6.2...v2.6.3)
+
+* 67a7731 fix: misc fixes when creating objects in data provider (#972) by @nikophil
+* 5e068c4 fix: ignore PHPUnit warnings when dataprovider returns more data than test method accepts (#958) by @nikophil
+* 0a65872 Fix proxying of classes that have tenative return types (#962) by @BackEndTea
+* f9e95cb fix: doctrine deprecation (#961) by @nikophil
+* c8256e3 Add support for Symfony 8 (#960) by @Kocal
+
+## [v2.6.2](https://github.com/zenstruck/foundry/releases/tag/v2.6.2)
+
+August 5th, 2025 - [v2.6.1...v2.6.2](https://github.com/zenstruck/foundry/compare/v2.6.1...v2.6.2)
+
+* 6f4e920 fix(proxy): add autorefresh call for union and intersection return types (#959) by @BackEndTea
+* 58fd89a feat: introduce method FactoryCollection::applyStateMethod() (#956) by @nikophil
+
+## [v2.6.1](https://github.com/zenstruck/foundry/releases/tag/v2.6.1)
+
+July 29th, 2025 - [v2.6.0...v2.6.1](https://github.com/zenstruck/foundry/compare/v2.6.0...v2.6.1)
+
+* 932c63a feat: rename `foundry:load-stories` to `foundry:load-fixtures` (#954) by @kbond
+* 1d31275 Update index.rst (#945) by @treztreiz
+* e5e5162 fix: doctrine deprecation (#949) by @nikophil
+* dc54221 Update index.rst (#946) by @treztreiz
+* 5ae21ec docs: fix forceSet() to _set() in example (#948) by @mariecharles, Marie CHARLES
+* 56161cc feat: add `randomRangeOrCreate()` method (#932) by @elliotbruneel, Elliot Bruneel
+* 2d28e67 test: ensure no deprecation when Factories used in parent class (#922) by @nikophil
+* b25eb60 minor: fix running `phpunit` w/o arguments (#933) by @kbond
+* f9b8132 minor: add UID types to factory maker (#936) by @HypeMC
+* 030f7aa chore: temporarily disable cascade relationship combinations (#938) by @nikophil
+
 ## [v2.6.0](https://github.com/zenstruck/foundry/releases/tag/v2.6.0)
 
 June 5th, 2025 - [v2.5.4...v2.6.0](https://github.com/zenstruck/foundry/compare/v2.5.4...v2.6.0)

@@ -14,7 +14,9 @@ declare(strict_types=1);
 namespace Zenstruck\Foundry\Tests\Unit\Persistence;
 
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\IgnoreDeprecations;
+use PHPUnit\Framework\Attributes\RequiresMethod;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Zenstruck\Foundry\Persistence\ProxyGenerator;
@@ -25,6 +27,7 @@ use Zenstruck\Foundry\Test\Factories;
  * @group legacy
  */
 #[IgnoreDeprecations]
+#[RequiresMethod(\Symfony\Component\VarExporter\LazyProxyTrait::class, 'createLazyProxy')]
 final class ProxyGeneratorTest extends TestCase
 {
     use Factories;
@@ -53,8 +56,8 @@ final class ProxyGeneratorTest extends TestCase
     #[Test]
     public function it_can_generate_proxy_for_class_with_self_return_type(): void
     {
-        $proxyfiedObj = ProxyGenerator::wrap($obj = new ClassWithSelfReturnType());
-        self::assertSame($obj, $proxyfiedObj->returnsSelf()->_real()); // @phpstan-ignore method.notFound
+        $proxyfiedObj = ProxyGenerator::wrap($obj = new ClassWithSelfReturnType()); // @phpstan-ignore staticMethod.unresolvableReturnType
+        self::assertSame($obj, $proxyfiedObj->returnsSelf()->_real());
     }
 
     /**
@@ -63,7 +66,7 @@ final class ProxyGeneratorTest extends TestCase
     #[Test]
     public function it_can_generate_proxy_for_class_with_method_with_nullable_return_type(): void
     {
-        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithNullableReturnType());
+        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithNullableReturnType()); // @phpstan-ignore staticMethod.unresolvableReturnType
         self::assertNull($proxyfiedObj->returnsNullable(null));
         self::assertSame(1, $proxyfiedObj->returnsNullable(1));
     }
@@ -74,8 +77,39 @@ final class ProxyGeneratorTest extends TestCase
     #[Test]
     public function it_can_generate_proxy_for_class_with_method_with_no_return_type(): void
     {
-        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithoutReturnType());
+        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithoutReturnType()); // @phpstan-ignore staticMethod.unresolvableReturnType
         self::assertSame(1, $proxyfiedObj->returnsSeomthing());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function it_can_generate_proxy_for_class_with_method_with_union_return_type(): void
+    {
+        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithUnionReturnType()); // @phpstan-ignore staticMethod.unresolvableReturnType
+        self::assertSame(1, $proxyfiedObj->returnsUnionType());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function it_can_generate_proxy_for_class_with_method_with_intersection_return_type(): void
+    {
+        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithInterSectionReturnType()); // @phpstan-ignore staticMethod.unresolvableReturnType
+        self::assertInstanceOf(One::class, $proxyfiedObj->returnsIntersectionType());
+        self::assertInstanceOf(Two::class, $proxyfiedObj->returnsIntersectionType());
+    }
+
+    /**
+     * @test
+     */
+    #[Test]
+    public function it_can_generate_proxy_for_class_with_method_with_attribute_added_by_proxy_helper(): void
+    {
+        $proxyfiedObj = ProxyGenerator::wrap(new ClassWithAttributeAddedByProxyHelper()); // @phpstan-ignore staticMethod.unresolvableReturnType
+        self::assertSame(1, $proxyfiedObj->jsonSerialize());
     }
 }
 
@@ -114,5 +148,36 @@ class ClassWithSelfReturnType
     public function returnsSelf(): self
     {
         return $this;
+    }
+}
+
+class ClassWithUnionReturnType
+{
+    public function returnsUnionType(): int|string|\DateTimeImmutable
+    {
+        return 1;
+    }
+}
+
+interface One
+{
+}
+interface Two
+{
+}
+
+class ClassWithInterSectionReturnType
+{
+    public function returnsIntersectionType(): One&Two
+    {
+        return new class implements One, Two {};
+    }
+}
+
+class ClassWithAttributeAddedByProxyHelper implements \JsonSerializable
+{
+    public function jsonSerialize(): mixed
+    {
+        return 1;
     }
 }

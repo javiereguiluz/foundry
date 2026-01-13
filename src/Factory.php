@@ -27,7 +27,7 @@ use Zenstruck\Foundry\Exception\CannotCreateFactory;
 abstract class Factory
 {
     /** @phpstan-var Attributes[] */
-    private array $attributes;
+    private array $attributes = [];
 
     // keep an empty constructor for BC
     public function __construct()
@@ -35,8 +35,8 @@ abstract class Factory
     }
 
     /**
-     * @phpstan-return static
      * @phpstan-param Attributes $attributes
+     * @phpstan-return static
      */
     final public static function new(array|callable $attributes = []): static
     {
@@ -45,7 +45,7 @@ abstract class Factory
         }
 
         try {
-            $factory ??= new static(); // @phpstan-ignore new.static
+            $factory ??= new static(); // @phpstan-ignore new.static, new.staticInAbstractClassStaticMethod
         } catch (\ArgumentCountError $e) {
             throw CannotCreateFactory::argumentCountError($e);
         }
@@ -70,6 +70,7 @@ abstract class Factory
      * @phpstan-param Attributes $attributes
      *
      * @return list<T>
+     * @phpstan-return ($number is positive-int ? non-empty-list<T> : list<T>)
      */
     final public static function createMany(int $number, array|callable $attributes = []): array
     {
@@ -80,6 +81,7 @@ abstract class Factory
      * @phpstan-param Attributes $attributes
      *
      * @return list<T>
+     * @phpstan-return ($min is positive-int ? non-empty-list<T> : list<T>)
      */
     final public static function createRange(int $min, int $max, array|callable $attributes = []): array
     {
@@ -147,8 +149,8 @@ abstract class Factory
     /**
      * @phpstan-param Attributes $attributes
      *
-     * @psalm-return static<T>
      * @phpstan-return static
+     * @psalm-return static<T>
      */
     final public function with(array|callable $attributes = []): static
     {

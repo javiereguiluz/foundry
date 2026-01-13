@@ -3,8 +3,10 @@
 set -o errexit
 set -o nounset
 
+COMPOSER_BIN="php -d xdebug.mode=off $(which composer)"
+
 check_phpunit_version() {
-    INSTALLED_PHPUNIT_VERSION=$(composer info phpunit/phpunit | grep versions |  cut -c 14-)
+    INSTALLED_PHPUNIT_VERSION=$(${COMPOSER_BIN} info phpunit/phpunit | grep versions |  cut -c 14-)
 
     REQUIRED_PHPUNIT_VERSION="${1?}"
 
@@ -12,6 +14,16 @@ check_phpunit_version() {
       echo 1;
     else
       echo 0;
+    fi
+}
+
+can_use_legacy_proxies() {
+    INSTALLED_SYMFONY_VERSION=$(${COMPOSER_BIN} info symfony/var-exporter | grep versions |  cut -c 15-)
+
+    if [[ "${INSTALLED_SYMFONY_VERSION}" == "8"* ]]; then
+      echo 0;
+    else
+      echo 1;
     fi
 }
 
@@ -35,7 +47,7 @@ SHOULD_UPDATE_PHPUNIT=$(check_phpunit_version "${PHPUNIT_VERSION}")
 
 if [ "${SHOULD_UPDATE_PHPUNIT}" = "0" ]; then
   echo "ℹ️  Upgrading PHPUnit to ${PHPUNIT_VERSION}"
-  composer update dama/doctrine-test-bundle brianium/paratest "phpunit/phpunit:^${PHPUNIT_VERSION}" -W
+  ${COMPOSER_BIN} update dama/doctrine-test-bundle "phpunit/phpunit:^${PHPUNIT_VERSION}" -W
 fi
 ### <<
 
@@ -71,6 +83,10 @@ case ${PHPUNIT_VERSION} in
 
     if [ "${USE_FOUNDRY_PHPUNIT_EXTENSION:-0}" = "1" ]; then
       PHPUNIT_EXEC="${PHPUNIT_EXEC} --extension "${FOUNDRY_EXTENSION}""
+    fi
+
+    if [ "${WITH_LOWEST_DEPENDENCIES:-0}" = "1" ]; then
+      PHPUNIT_EXEC="${PHPUNIT_EXEC} --do-not-fail-on-deprecation --do-not-fail-on-phpunit-deprecation"
     fi
     ;;
 esac
